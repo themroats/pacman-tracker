@@ -34,7 +34,7 @@ class Activity(Base):
     summary_polyline: Mapped[str | None] = mapped_column(Text, nullable=True)
     detailed_polyline: Mapped[str | None] = mapped_column(Text, nullable=True)
     gps_trace: Mapped[str | None] = mapped_column(
-        Geometry("LINESTRING", srid=4326, management=True),
+        Geometry("LINESTRING", srid=4326),
         nullable=True,
     )
     has_gps: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

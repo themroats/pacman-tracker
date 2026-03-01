@@ -25,10 +25,10 @@ class RouteSuggestion(Base):
         Integer, ForeignKey("neighborhoods.id"), nullable=True
     )
     start_point: Mapped[str] = mapped_column(
-        Geometry("POINT", srid=4326, management=True), nullable=False
+        Geometry("POINT", srid=4326), nullable=False
     )
     route_geometry: Mapped[str] = mapped_column(
-        Geometry("LINESTRING", srid=4326, management=True), nullable=False
+        Geometry("LINESTRING", srid=4326), nullable=False
     )
     distance_meters: Mapped[float] = mapped_column(Float, nullable=False)
     estimated_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)

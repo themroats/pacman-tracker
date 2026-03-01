@@ -30,7 +30,7 @@ class StreetSegment(Base):
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     highway_type: Mapped[str] = mapped_column(String(50), nullable=False)
     geometry: Mapped[str] = mapped_column(
-        Geometry("LINESTRING", srid=4326, management=True),
+        Geometry("LINESTRING", srid=4326),
         nullable=False,
     )
     length_meters: Mapped[float] = mapped_column(Float, nullable=False)

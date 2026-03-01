@@ -27,12 +27,39 @@ class TestRecordDailySnapshot:
         from app.services.progress import record_daily_snapshot
 
         db = MagicMock()
-        db.query.return_value.filter_by.return_value.count.return_value = 100  # total streets
-        db.query.return_value.filter.return_value.filter_by.return_value.count.return_value = (
-            25  # traveled streets
-        )
-        # No existing snapshot today
-        db.query.return_value.filter_by.return_value.first.return_value = None
+
+        # The function calls db.query(StreetSegment).filter_by(city_id=...).count()
+        # and db.query(UserStreetCoverage).filter(...).filter(...).join(...).filter(...).count()
+        # and db.query(CoverageSnapshot).filter_by(...).first()
+        # Since MagicMock returns the same mock for all calls, we need side_effect
+        # on db.query to differentiate.
+
+        # Mock for StreetSegment query: .filter_by().count() = 100
+        street_query_mock = MagicMock()
+        street_query_mock.filter_by.return_value.count.return_value = 100
+
+        # Mock for UserStreetCoverage query: .filter().filter().join().filter().count() = 25
+        coverage_query_mock = MagicMock()
+        coverage_chain = coverage_query_mock.filter.return_value.filter.return_value
+        coverage_chain.join.return_value.filter.return_value.count.return_value = 25
+
+        # Mock for CoverageSnapshot query: .filter_by().first() = None (no existing)
+        snapshot_query_mock = MagicMock()
+        snapshot_query_mock.filter_by.return_value.first.return_value = None
+
+        from app.models.street import StreetSegment
+        from app.models.coverage import UserStreetCoverage, CoverageSnapshot
+
+        def query_side_effect(model):
+            if model is StreetSegment:
+                return street_query_mock
+            elif model is UserStreetCoverage:
+                return coverage_query_mock
+            elif model is CoverageSnapshot:
+                return snapshot_query_mock
+            return MagicMock()
+
+        db.query.side_effect = query_side_effect
 
         snap = record_daily_snapshot(db, user_id=1, city_id=1)
 
@@ -47,9 +74,36 @@ class TestRecordDailySnapshot:
         from app.services.progress import record_daily_snapshot
 
         db = MagicMock()
+
         existing = MagicMock()
         existing.coverage_percentage = 20.0
-        db.query.return_value.filter_by.return_value.first.return_value = existing
+
+        from app.models.street import StreetSegment
+        from app.models.coverage import UserStreetCoverage, CoverageSnapshot
+
+        # StreetSegment query: total_streets = 100
+        street_query_mock = MagicMock()
+        street_query_mock.filter_by.return_value.count.return_value = 100
+
+        # UserStreetCoverage query: traveled = 25
+        coverage_query_mock = MagicMock()
+        coverage_chain = coverage_query_mock.filter.return_value.filter.return_value
+        coverage_chain.join.return_value.filter.return_value.count.return_value = 25
+
+        # CoverageSnapshot query: existing snapshot found
+        snapshot_query_mock = MagicMock()
+        snapshot_query_mock.filter_by.return_value.first.return_value = existing
+
+        def query_side_effect(model):
+            if model is StreetSegment:
+                return street_query_mock
+            elif model is UserStreetCoverage:
+                return coverage_query_mock
+            elif model is CoverageSnapshot:
+                return snapshot_query_mock
+            return MagicMock()
+
+        db.query.side_effect = query_side_effect
 
         result = record_daily_snapshot(db, user_id=1, city_id=1)
 

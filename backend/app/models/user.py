@@ -2,7 +2,6 @@
 
 import datetime
 
-from geoalchemy2 import Management
 from sqlalchemy import BigInteger, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

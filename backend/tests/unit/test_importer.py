@@ -22,17 +22,21 @@ class TestTwoPhaseImport:
         from app.services.importer import ActivityImporter
 
         mock_strava = AsyncMock()
-        mock_strava.fetch_activity_list.return_value = [
-            {
-                "id": 100,
-                "name": "Morning Run",
-                "sport_type": "Run",
-                "start_date": "2025-01-15T08:00:00Z",
-                "distance": 5000.0,
-                "elapsed_time": 1800,
-                "moving_time": 1750,
-                "map": {"summary_polyline": "encoded_polyline_a"},
-            }
+        # Return data on first call, empty list on second to break pagination loop
+        mock_strava.fetch_activity_list.side_effect = [
+            [
+                {
+                    "id": 100,
+                    "name": "Morning Run",
+                    "sport_type": "Run",
+                    "start_date": "2025-01-15T08:00:00Z",
+                    "distance": 5000.0,
+                    "elapsed_time": 1800,
+                    "moving_time": 1750,
+                    "map": {"summary_polyline": "encoded_polyline_a"},
+                }
+            ],
+            [],  # Page 2: empty → stops pagination
         ]
         mock_strava.fetch_activity_detail.return_value = {
             "id": 100,
@@ -41,12 +45,14 @@ class TestTwoPhaseImport:
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter_by.return_value.first.return_value = None
+        # order_by chain for last_activity lookup
+        mock_session.query.return_value.filter_by.return_value.order_by.return_value.first.return_value = None
 
         importer = ActivityImporter(strava_service=mock_strava, db_session=mock_session)
-        result = await importer.import_phase_a(user_id=1)
+        result = await importer.import_phase_a(user_id=1, access_token="test_token")
 
         assert result["imported"] >= 1
-        mock_strava.fetch_activity_list.assert_called_once()
+        assert mock_strava.fetch_activity_list.call_count == 2
 
     @pytest.mark.asyncio
     async def test_phase_b_fetches_gps_streams(self):
@@ -69,7 +75,7 @@ class TestTwoPhaseImport:
         ]
 
         importer = ActivityImporter(strava_service=mock_strava, db_session=mock_session)
-        result = await importer.import_phase_b(user_id=1)
+        result = await importer.import_phase_b(user_id=1, access_token="test_token")
 
         assert result["processed"] >= 1
 
@@ -83,26 +89,31 @@ class TestActivityDeduplication:
         from app.services.importer import ActivityImporter
 
         mock_strava = AsyncMock()
-        mock_strava.fetch_activity_list.return_value = [
-            {
-                "id": 100,
-                "name": "Morning Run",
-                "sport_type": "Run",
-                "start_date": "2025-01-15T08:00:00Z",
-                "distance": 5000.0,
-                "elapsed_time": 1800,
-                "moving_time": 1750,
-                "map": {"summary_polyline": "encoded_polyline_a"},
-            }
+        # Return data on first call, empty on second to stop pagination
+        mock_strava.fetch_activity_list.side_effect = [
+            [
+                {
+                    "id": 100,
+                    "name": "Morning Run",
+                    "sport_type": "Run",
+                    "start_date": "2025-01-15T08:00:00Z",
+                    "distance": 5000.0,
+                    "elapsed_time": 1800,
+                    "moving_time": 1750,
+                    "map": {"summary_polyline": "encoded_polyline_a"},
+                }
+            ],
+            [],  # Page 2: empty → stops pagination
         ]
 
         # Simulate existing activity in DB
         mock_existing = MagicMock()
         mock_session = MagicMock()
         mock_session.query.return_value.filter_by.return_value.first.return_value = mock_existing
+        mock_session.query.return_value.filter_by.return_value.order_by.return_value.first.return_value = None
 
         importer = ActivityImporter(strava_service=mock_strava, db_session=mock_session)
-        result = await importer.import_phase_a(user_id=1)
+        result = await importer.import_phase_a(user_id=1, access_token="test_token")
 
         assert result["skipped"] >= 1
 
@@ -124,6 +135,6 @@ class TestRateLimitHandling:
         importer = ActivityImporter(strava_service=mock_strava, db_session=mock_session)
 
         with pytest.raises(RateLimitError) as exc_info:
-            await importer.import_phase_a(user_id=1)
+            await importer.import_phase_a(user_id=1, access_token="test_token")
 
         assert exc_info.value.retry_after == 60

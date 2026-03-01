@@ -23,7 +23,7 @@ class Neighborhood(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     boundary: Mapped[str] = mapped_column(
-        Geometry("MULTIPOLYGON", srid=4326, management=True),
+        Geometry("MULTIPOLYGON", srid=4326),
         nullable=False,
     )
     total_street_segments: Mapped[int] = mapped_column(
