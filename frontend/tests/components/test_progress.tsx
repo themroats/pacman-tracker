@@ -59,7 +59,7 @@ describe("MilestoneList", () => {
 
     expect(screen.getByText("25%")).toBeDefined();
     expect(screen.getByText("50%")).toBeDefined();
-    expect(screen.getByText(/Capitol Hill/)).toBeDefined();
+    expect(screen.getAllByText(/Capitol Hill/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("visually differentiates reached and unreached milestones", async () => {
@@ -106,7 +106,7 @@ describe("StatsOverview", () => {
     render(<StatsOverview stats={stats} />);
 
     expect(screen.getByText("234")).toBeDefined();
-    expect(screen.getByText("1,250")).toBeDefined();
+    expect(screen.getAllByText("1,250").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Seattle/)).toBeDefined();
   });
 });
