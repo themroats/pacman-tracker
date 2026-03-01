@@ -27,7 +27,7 @@ Build a web application that imports a user's Strava activities via OAuth2, disp
 |-----------|--------|----------|
 | I. API-First Design | PASS | All functionality exposed via FastAPI REST endpoints; Strava integration behind dedicated service; OpenAPI auto-generated; React consumes only backend API |
 | II. Test-First Development | PASS | pytest for backend geo logic + Strava contract tests with recorded responses; Vitest for frontend; acceptance tests per user story |
-| III. Data Privacy by Design | PASS | Strava OAuth2 only (no passwords); tokens encrypted at rest; minimum scopes (activity:read); data deletion path planned |
+| III. Data Privacy by Design | PASS | Strava OAuth2 only (no passwords); tokens encrypted at rest; minimum scopes (`activity:read_all`); no user passwords stored |
 | IV. Simplicity & Incremental Delivery | PASS | 4 stories deliverable as independent vertical slices; P1 is map + activities before any gamification; no speculative patterns |
 | Technology Standards | PASS | Python 3.12+/FastAPI, React 18+/TypeScript/Vite, react-leaflet, Shapely/GeoPandas/OSMnx, SQLite+SpatiaLite (constitution allows for local dev) |
 | Development Workflow | PASS | Feature branches, PR with tests, ruff + ESLint/Prettier enforced |
@@ -69,18 +69,29 @@ backend/
 │   │   ├── importer.py      # Activity import pipeline
 │   │   ├── coverage.py      # GPS-to-street matching + coverage calc
 │   │   ├── routing.py       # OSRM integration + route suggestion
+│   │   ├── progress.py      # Snapshot + milestone tracking
+│   │   ├── crypto.py        # Token encryption/decryption
+│   │   ├── webhook.py       # Strava webhook event handler
 │   │   └── streets.py       # OSMnx street network management
 │   ├── api/                 # FastAPI routers
 │   │   ├── auth.py          # OAuth endpoints
 │   │   ├── activities.py    # Activity CRUD + filters
 │   │   ├── coverage.py      # Coverage queries
 │   │   ├── routes.py        # Route suggestion endpoints
-│   │   └── progress.py      # Stats + milestones
+│   │   ├── progress.py      # Stats + milestones
+│   │   ├── cities.py        # City + neighborhood queries
+│   │   ├── sync.py          # Sync status + trigger
+│   │   └── webhook.py       # Strava webhook endpoints
 │   └── schemas/             # Pydantic request/response models
 │       ├── activity.py
 │       ├── coverage.py
 │       ├── route.py
+│       ├── progress.py
 │       └── user.py
+│   ├── scripts/             # CLI scripts (init_db, load_cities, refresh_streets)
+│   │   ├── init_db.py
+│   │   ├── load_cities.py
+│   │   └── refresh_streets.py
 ├── tests/
 │   ├── unit/                # Shapely/GeoPandas logic tests
 │   ├── contract/            # Strava API recorded responses
@@ -94,6 +105,8 @@ frontend/
 │   ├── main.tsx
 │   ├── api/                 # API client (typed fetch wrappers)
 │   │   └── client.ts
+│   ├── store/               # Zustand state management
+│   │   └── index.ts
 │   ├── components/          # Reusable UI components
 │   │   ├── Map/             # Leaflet map wrapper + layers
 │   │   ├── ActivityList/
@@ -118,6 +131,16 @@ frontend/
 ```
 
 **Structure Decision**: Web application pattern (Option 2) — separate `backend/` and `frontend/` directories with independent test suites, matching constitution requirement for isolated test runs. Backend follows FastAPI conventions with `app/` package; frontend follows Vite/React conventions.
+
+## Migration Path: SpatiaLite → PostGIS
+
+SQLite + SpatiaLite is used for local development per constitution allowance. When deploying to production:
+
+1. Replace `database.py` connection string with PostgreSQL URI
+2. Remove `management=True` from GeoAlchemy2 columns (PostGIS manages geometry natively)
+3. Replace `ST_Buffer + ST_Intersects` patterns with `ST_DWithin` for distance queries
+4. Replace SpatiaLite `CreateSpatialIndex()` calls with standard PostgreSQL `CREATE INDEX ... USING GIST`
+5. ORM models and all SQL remain compatible — GeoAlchemy2 abstracts dialect differences
 
 ## Complexity Tracking
 

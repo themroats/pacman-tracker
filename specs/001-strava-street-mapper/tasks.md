@@ -3,9 +3,9 @@
 **Input**: Design documents from `/specs/001-strava-street-mapper/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/api.md, quickstart.md
 
-**Tests**: Not explicitly requested in the feature specification. Test tasks are omitted.
+**Tests**: Constitution Principle II (Test-First Development) requires acceptance-level tests before implementation. Test tasks are included per user story.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. Test tasks appear before implementation tasks within each phase (Red-Green-Refactor).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -31,6 +31,8 @@
 - [ ] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
 - [ ] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
 - [ ] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
+- [ ] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
+- [ ] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
 
 ---
 
@@ -68,6 +70,13 @@
 
 **Independent Test**: Connect a Strava account, verify activities import and appear as colored polylines on the map. Click a route to see details. Filter by type/date.
 
+### Tests — US1 (write failing tests first)
+
+- [ ] T083 [US1] Write Strava OAuth contract tests with recorded responses (auth URL, token exchange, token refresh) in `backend/tests/contract/test_strava_oauth.py`
+- [ ] T084 [US1] Write activity import unit tests with sample GPS data (two-phase import, deduplication, rate-limit queuing) in `backend/tests/unit/test_importer.py`
+- [ ] T085 [US1] Write activities API integration tests (list with filters, detail, GeoJSON endpoints) in `backend/tests/integration/test_activities_api.py`
+- [ ] T086 [P] [US1] Write frontend auth flow component tests (connect button, callback redirect, logout) in `frontend/tests/components/test_auth.tsx`
+
 ### Backend — US1
 
 - [ ] T025 [P] [US1] Create Activity ORM model in `backend/app/models/activity.py` (all fields per data-model.md, gps_trace geometry, import_status state machine)
@@ -78,6 +87,8 @@
 - [ ] T030 [US1] Implement activity import pipeline: two-phase import (polyline first, streams second), deduplication, rate-limit handling in `backend/app/services/importer.py`
 - [ ] T031 [US1] Implement sync API router: `GET /sync/status`, `POST /sync/trigger` in `backend/app/api/sync.py`
 - [ ] T032 [US1] Implement activities API router: `GET /activities` (with filters), `GET /activities/{id}`, `GET /activities/{id}/geojson`, `GET /activities/geojson` in `backend/app/api/activities.py`
+- [ ] T095 [US1] Implement Strava webhook verification endpoint `GET /webhook/strava` and event receiver `POST /webhook/strava` in `backend/app/api/webhook.py`
+- [ ] T096 [US1] Implement webhook event handler: dispatch activity create/update/delete events, trigger incremental sync for matching user in `backend/app/services/webhook.py`
 
 ### Frontend — US1
 
@@ -101,12 +112,19 @@
 
 **Independent Test**: Select a neighborhood, verify streets are correctly classified based on imported activities, confirm coverage percentage matches manual count.
 
+### Tests — US2 (write failing tests first)
+
+- [ ] T087 [US2] Write GPS-to-street matching unit tests with deterministic geometry (buffer, intersection, coverage_ratio, 80% threshold) in `backend/tests/unit/test_coverage.py`
+- [ ] T088 [US2] Write coverage API integration tests (city summary, neighborhood detail, street GeoJSON with status filter) in `backend/tests/integration/test_coverage_api.py`
+- [ ] T089 [P] [US2] Write frontend coverage dashboard component tests (color-coded streets, percentage display, area selector) in `frontend/tests/components/test_coverage.tsx`
+
 ### Backend — US2
 
 - [ ] T042 [P] [US2] Create UserStreetCoverage ORM model in `backend/app/models/coverage.py` (coverage_ratio, is_traveled, first_traveled_at, FK relationships)
 - [ ] T043 [P] [US2] Create Pydantic schemas for Coverage (city summary, neighborhood detail, street GeoJSON feature) in `backend/app/schemas/coverage.py`
 - [ ] T044 [US2] Implement GPS-to-street matching service: buffer GPS trace by 15m, intersect with street segments, compute coverage_ratio, update UserStreetCoverage in `backend/app/services/coverage.py`
 - [ ] T045 [US2] Integrate coverage computation into import pipeline: trigger matching after activity GPS streams are imported in `backend/app/services/importer.py`
+- [ ] T099 [US2] Implement on-street vs off-road activity classification: mark activities with <20% street match ratio as off-road (`is_on_street=false`), exclude from coverage stats in `backend/app/services/coverage.py`
 - [ ] T046 [US2] Implement coverage API router: `GET /coverage/city/{city_id}`, `GET /coverage/neighborhood/{neighborhood_id}`, `GET /coverage/neighborhood/{neighborhood_id}/streets`, `GET /coverage/city/{city_id}/streets` in `backend/app/api/coverage.py`
 - [ ] T047 [P] [US2] Implement cities API router: `GET /cities`, `GET /cities/{city_id}/neighborhoods`, `GET /cities/{city_id}/neighborhoods/{neighborhood_id}/boundary` in `backend/app/api/cities.py`
 
@@ -128,6 +146,12 @@
 **Goal**: User specifies a starting point and distance, system generates a route prioritizing untraveled streets via OSRM, displayed on the map with untraveled segments highlighted.
 
 **Independent Test**: Request a 5km route suggestion for a partially-covered neighborhood, verify route prioritizes untraveled streets and is within 10% of requested distance.
+
+### Tests — US3 (write failing tests first)
+
+- [ ] T090 [US3] Write OSRM client unit tests with stubbed HTTP responses (`/nearest`, `/trip`, `/route` parsing) in `backend/tests/unit/test_routing.py`
+- [ ] T091 [US3] Write route suggestion algorithm tests (waypoint selection, distance iteration, 100%-covered fallback) in `backend/tests/unit/test_route_algorithm.py`
+- [ ] T092 [P] [US3] Write frontend route suggestion component tests (form inputs, route display, detail panel) in `frontend/tests/components/test_route.tsx`
 
 ### Backend — US3
 
@@ -154,6 +178,11 @@
 **Goal**: User views coverage milestones (25%, 50%, 75%, 100%), a progress timeline chart, and overall statistics (total streets, distance, activity count, city coverage).
 
 **Independent Test**: Verify milestones are recorded with correct dates, timeline chart reflects historical growth, and stats page shows accurate totals.
+
+### Tests — US4 (write failing tests first)
+
+- [ ] T093 [US4] Write snapshot/milestone service unit tests (daily snapshots, 25/50/75/100% detection, timestamp accuracy) in `backend/tests/unit/test_progress.py`
+- [ ] T094 [P] [US4] Write frontend progress timeline component tests (chart rendering, milestone badges, stats display) in `frontend/tests/components/test_progress.tsx`
 
 ### Backend — US4
 
@@ -186,6 +215,9 @@
 - [ ] T078 [P] Add GPS quality detection: flag activities with significant GPS gaps for user review in `backend/app/services/importer.py`
 - [ ] T079 Run quickstart.md validation: verify full setup flow end-to-end
 - [ ] T080 [P] Create OSRM Docker Compose configuration for local development in `docker-compose.yml`
+- [ ] T097 Detect Strava token revocation (401 responses during sync), set user sync_status to "revoked", preserve all imported data in `backend/app/services/strava.py`
+- [ ] T098 [P] Add Strava reconnection prompt banner when sync_status is "revoked" in `frontend/src/components/ReconnectBanner.tsx`
+- [ ] T100 [P] Create street network refresh script for re-downloading OSM data per city and recalculating coverage in `backend/app/scripts/refresh_streets.py`
 
 ---
 
@@ -193,12 +225,12 @@
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies — can start immediately
+- **Setup (Phase 1)**: No dependencies — can start immediately. Includes test infrastructure (T081, T082)
 - **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories
-- **US1 (Phase 3)**: Depends on Foundational phase completion — BLOCKS US2 (coverage needs activities)
-- **US2 (Phase 4)**: Depends on US1 (needs imported activities and GPS traces to compute coverage)
-- **US3 (Phase 5)**: Depends on US2 (needs coverage data to identify untraveled streets) + requires OSRM running
-- **US4 (Phase 6)**: Depends on US2 (needs coverage computation to generate snapshots/milestones)
+- **US1 (Phase 3)**: Depends on Foundational phase completion — BLOCKS US2. **Tests first** (T083–T086), then implementation
+- **US2 (Phase 4)**: Depends on US1 (needs imported activities and GPS traces to compute coverage). **Tests first** (T087–T089), then implementation
+- **US3 (Phase 5)**: Depends on US2 (needs coverage data to identify untraveled streets) + requires OSRM running. **Tests first** (T090–T092), then implementation
+- **US4 (Phase 6)**: Depends on US2 (needs coverage computation to generate snapshots/milestones). **Tests first** (T093–T094), then implementation
 - **Polish (Phase 7)**: Can overlap with US3/US4; full completion after all stories done
 
 ### User Story Dependencies
@@ -210,6 +242,7 @@
 
 ### Within Each User Story
 
+- **Test tasks before implementation tasks** (Red-Green-Refactor)
 - Backend models before services
 - Services before API routers
 - Backend endpoints before frontend pages that consume them
@@ -217,7 +250,7 @@
 
 ### Parallel Opportunities
 
-**Phase 1 (Setup)**: T003, T004, T005, T006, T007 all run in parallel  
+**Phase 1 (Setup)**: T003, T004, T005, T006, T007, T081, T082 all run in parallel  
 **Phase 2 (Foundational)**: T010, T011, T012, T013 (models) in parallel; T015, T016, T018 in parallel; T020, T021, T023 in parallel  
 **US1 Backend**: T025 + T026 in parallel → T027 → T028 + T029 → T030 → T031 + T032  
 **US1 Frontend**: T033 + T034 in parallel; T037 + T038 + T039 + T040 in parallel after T035/T036  

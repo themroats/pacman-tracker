@@ -44,7 +44,7 @@ Represents an authenticated Strava user.
 
 **Validation rules**:
 - `strava_athlete_id` must be positive
-- `sync_status` must be one of: "idle", "importing", "syncing", "error"
+- `sync_status` must be one of: "idle", "importing", "syncing", "error", "revoked"
 - `token_expires_at` must be in the future when tokens are refreshed
 
 ---

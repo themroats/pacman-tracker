@@ -209,6 +209,61 @@ Manually trigger an incremental sync of new Strava activities.
 
 ---
 
+## Webhooks
+
+### `GET /webhook/strava`
+
+Strava webhook subscription verification (called by Strava during subscription setup).
+
+**Query Parameters**:
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| hub.mode | string | yes | Always "subscribe" |
+| hub.challenge | string | yes | Challenge string to echo back |
+| hub.verify_token | string | yes | Token to validate against app config |
+
+**Response** `200 OK`:
+```json
+{
+  "hub.challenge": "challenge-string-from-strava"
+}
+```
+
+---
+
+### `POST /webhook/strava`
+
+Receive Strava push event notifications for new/updated/deleted activities.
+
+**Request Body** (from Strava):
+```json
+{
+  "aspect_type": "create",
+  "event_time": 1709164800,
+  "object_id": 1234567890,
+  "object_type": "activity",
+  "owner_id": 98765,
+  "subscription_id": 12345,
+  "updates": {}
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| aspect_type | string | "create", "update", or "delete" |
+| object_id | integer | Strava activity ID |
+| object_type | string | Always "activity" for our use case |
+| owner_id | integer | Strava athlete ID |
+
+**Response** `200 OK`:
+```json
+{ "status": "received" }
+```
+
+**Behavior**: On `create`/`update`, triggers an incremental sync for the matching user. On `delete`, marks the local activity as deleted.
+
+---
+
 ## Coverage
 
 ### `GET /coverage/city/{city_id}`
@@ -270,6 +325,8 @@ Get detailed coverage for a neighborhood.
 ### `GET /coverage/neighborhood/{neighborhood_id}/streets`
 
 Get street segments for a neighborhood with coverage status (for map rendering).
+
+> **Note**: This endpoint is a convenience alias. The same data is available via `GET /coverage/city/{city_id}/streets?neighborhood_id={id}`. Both are retained for URL clarity.
 
 **Response** `200 OK`:
 ```json

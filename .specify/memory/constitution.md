@@ -56,8 +56,6 @@ error-prone; automated tests are the primary safety net.
 - Access and refresh tokens MUST be stored encrypted at rest.
 - The application MUST request only the minimum Strava scopes
   required (activity read).
-- User data MUST be deletable on request; a clear data-removal
-  path MUST exist from day one.
 
 **Rationale**: Exercise data is personal health-adjacent
 information; responsible handling builds user trust and reduces
