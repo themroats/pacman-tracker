@@ -24,15 +24,15 @@
 
 **Purpose**: Project initialization, backend + frontend scaffolding, tooling
 
-- [x] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
-- [x] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
-- [x] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
-- [x] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
-- [x] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
-- [x] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
-- [x] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
-- [x] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
-- [x] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
+- [ ] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
+- [ ] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
+- [ ] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
+- [ ] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
+- [ ] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
+- [ ] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
+- [ ] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
+- [ ] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
+- [ ] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
 
 ---
 
