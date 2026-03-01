@@ -24,15 +24,15 @@
 
 **Purpose**: Project initialization, backend + frontend scaffolding, tooling
 
-- [ ] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
-- [ ] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
-- [ ] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
-- [ ] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
-- [ ] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
-- [ ] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
-- [ ] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
-- [ ] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
-- [ ] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
+- [x] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
+- [x] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
+- [x] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
+- [x] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
+- [x] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
+- [x] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
+- [x] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
+- [x] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
+- [x] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
 
 ---
 
@@ -42,23 +42,23 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Implement app configuration and settings management in `backend/app/config.py` (Pydantic BaseSettings, Strava credentials, DB URL, secret key, OSRM URL)
-- [ ] T009 Implement SpatiaLite database connection, session management, and SpatiaLite extension loading in `backend/app/database.py`
-- [ ] T010 [P] Create User ORM model in `backend/app/models/user.py` (all fields per data-model.md, encrypted token fields, sync_status enum)
-- [ ] T011 [P] Create City ORM model in `backend/app/models/city.py` (boundary geometry, projected_crs, cached counts)
-- [ ] T012 [P] Create Neighborhood ORM model in `backend/app/models/neighborhood.py` (boundary geometry, FK to City, cached counts)
-- [ ] T013 [P] Create StreetSegment ORM model in `backend/app/models/street.py` (geometry, osm fields, FK to City/Neighborhood, length_meters)
-- [ ] T014 Create database initialization script with table creation and spatial indexes in `backend/app/scripts/init_db.py`
-- [ ] T015 [P] Create Pydantic schemas for User (request/response) in `backend/app/schemas/user.py`
-- [ ] T016 [P] Implement error handling middleware and standard error response format in `backend/app/main.py`
-- [ ] T017 Implement FastAPI app entry point with CORS, router registration, and lifespan events in `backend/app/main.py`
-- [ ] T018 [P] Implement token encryption/decryption utility for Strava tokens in `backend/app/services/crypto.py`
-- [ ] T019 Create city data loader script (OSMnx street download, neighborhood boundary import, SpatiaLite bulk insert) in `backend/app/scripts/load_cities.py`
-- [ ] T020 [P] Create TypeScript type definitions matching API contracts in `frontend/src/types/api.ts`
-- [ ] T021 [P] Create typed API client with fetch wrappers and error handling in `frontend/src/api/client.ts`
-- [ ] T022 Create Zustand store skeleton (auth state, activities, filters, coverage, selected city) in `frontend/src/store/index.ts`
-- [ ] T023 [P] Create base Leaflet Map component with CartoDB Positron tiles and `preferCanvas` in `frontend/src/components/Map/MapView.tsx`
-- [ ] T024 Implement React Router with page shell components (Home, Map, Coverage, Route, Progress) in `frontend/src/App.tsx`
+- [x] T008 Implement app configuration and settings management in `backend/app/config.py` (Pydantic BaseSettings, Strava credentials, DB URL, secret key, OSRM URL)
+- [x] T009 Implement SpatiaLite database connection, session management, and SpatiaLite extension loading in `backend/app/database.py`
+- [x] T010 [P] Create User ORM model in `backend/app/models/user.py` (all fields per data-model.md, encrypted token fields, sync_status enum)
+- [x] T011 [P] Create City ORM model in `backend/app/models/city.py` (boundary geometry, projected_crs, cached counts)
+- [x] T012 [P] Create Neighborhood ORM model in `backend/app/models/neighborhood.py` (boundary geometry, FK to City, cached counts)
+- [x] T013 [P] Create StreetSegment ORM model in `backend/app/models/street.py` (geometry, osm fields, FK to City/Neighborhood, length_meters)
+- [x] T014 Create database initialization script with table creation and spatial indexes in `backend/app/scripts/init_db.py`
+- [x] T015 [P] Create Pydantic schemas for User (request/response) in `backend/app/schemas/user.py`
+- [x] T016 [P] Implement error handling middleware and standard error response format in `backend/app/main.py`
+- [x] T017 Implement FastAPI app entry point with CORS, router registration, and lifespan events in `backend/app/main.py`
+- [x] T018 [P] Implement token encryption/decryption utility for Strava tokens in `backend/app/services/crypto.py`
+- [x] T019 Create city data loader script (OSMnx street download, neighborhood boundary import, SpatiaLite bulk insert) in `backend/app/scripts/load_cities.py`
+- [x] T020 [P] Create TypeScript type definitions matching API contracts in `frontend/src/types/api.ts`
+- [x] T021 [P] Create typed API client with fetch wrappers and error handling in `frontend/src/api/client.ts`
+- [x] T022 Create Zustand store skeleton (auth state, activities, filters, coverage, selected city) in `frontend/src/store/index.ts`
+- [x] T023 [P] Create base Leaflet Map component with CartoDB Positron tiles and `preferCanvas` in `frontend/src/components/Map/MapView.tsx`
+- [x] T024 Implement React Router with page shell components (Home, Map, Coverage, Route, Progress) in `frontend/src/App.tsx`
 
 **Checkpoint**: Foundation ready — database initialized, city data loadable, backend running, frontend scaffolded with map component. User story implementation can now begin.
 
@@ -72,35 +72,35 @@
 
 ### Tests — US1 (write failing tests first)
 
-- [ ] T083 [US1] Write Strava OAuth contract tests with recorded responses (auth URL, token exchange, token refresh) in `backend/tests/contract/test_strava_oauth.py`
-- [ ] T084 [US1] Write activity import unit tests with sample GPS data (two-phase import, deduplication, rate-limit queuing) in `backend/tests/unit/test_importer.py`
-- [ ] T085 [US1] Write activities API integration tests (list with filters, detail, GeoJSON endpoints) in `backend/tests/integration/test_activities_api.py`
-- [ ] T086 [P] [US1] Write frontend auth flow component tests (connect button, callback redirect, logout) in `frontend/tests/components/test_auth.tsx`
+- [x] T083 [US1] Write Strava OAuth contract tests with recorded responses (auth URL, token exchange, token refresh) in `backend/tests/contract/test_strava_oauth.py`
+- [x] T084 [US1] Write activity import unit tests with sample GPS data (two-phase import, deduplication, rate-limit queuing) in `backend/tests/unit/test_importer.py`
+- [x] T085 [US1] Write activities API integration tests (list with filters, detail, GeoJSON endpoints) in `backend/tests/integration/test_activities_api.py`
+- [x] T086 [P] [US1] Write frontend auth flow component tests (connect button, callback redirect, logout) in `frontend/tests/components/test_auth.tsx`
 
 ### Backend — US1
 
-- [ ] T025 [P] [US1] Create Activity ORM model in `backend/app/models/activity.py` (all fields per data-model.md, gps_trace geometry, import_status state machine)
-- [ ] T026 [P] [US1] Create Pydantic schemas for Activity (list response, detail response, GeoJSON feature) in `backend/app/schemas/activity.py`
-- [ ] T027 [US1] Implement Strava OAuth service: authorization URL generation, token exchange, token refresh in `backend/app/services/strava.py`
-- [ ] T028 [US1] Implement auth API router: `GET /auth/strava`, `GET /auth/strava/callback`, `POST /auth/logout` in `backend/app/api/auth.py`
-- [ ] T029 [US1] Implement Strava activity fetcher: paginated list fetch, detail+polyline fetch, GPS stream fetch in `backend/app/services/strava.py`
-- [ ] T030 [US1] Implement activity import pipeline: two-phase import (polyline first, streams second), deduplication, rate-limit handling in `backend/app/services/importer.py`
-- [ ] T031 [US1] Implement sync API router: `GET /sync/status`, `POST /sync/trigger` in `backend/app/api/sync.py`
-- [ ] T032 [US1] Implement activities API router: `GET /activities` (with filters), `GET /activities/{id}`, `GET /activities/{id}/geojson`, `GET /activities/geojson` in `backend/app/api/activities.py`
-- [ ] T095 [US1] Implement Strava webhook verification endpoint `GET /webhook/strava` and event receiver `POST /webhook/strava` in `backend/app/api/webhook.py`
-- [ ] T096 [US1] Implement webhook event handler: dispatch activity create/update/delete events, trigger incremental sync for matching user in `backend/app/services/webhook.py`
+- [x] T025 [P] [US1] Create Activity ORM model in `backend/app/models/activity.py` (all fields per data-model.md, gps_trace geometry, import_status state machine)
+- [x] T026 [P] [US1] Create Pydantic schemas for Activity (list response, detail response, GeoJSON feature) in `backend/app/schemas/activity.py`
+- [x] T027 [US1] Implement Strava OAuth service: authorization URL generation, token exchange, token refresh in `backend/app/services/strava.py`
+- [x] T028 [US1] Implement auth API router: `GET /auth/strava`, `GET /auth/strava/callback`, `POST /auth/logout` in `backend/app/api/auth.py`
+- [x] T029 [US1] Implement Strava activity fetcher: paginated list fetch, detail+polyline fetch, GPS stream fetch in `backend/app/services/strava.py`
+- [x] T030 [US1] Implement activity import pipeline: two-phase import (polyline first, streams second), deduplication, rate-limit handling in `backend/app/services/importer.py`
+- [x] T031 [US1] Implement sync API router: `GET /sync/status`, `POST /sync/trigger` in `backend/app/api/sync.py`
+- [x] T032 [US1] Implement activities API router: `GET /activities` (with filters), `GET /activities/{id}`, `GET /activities/{id}/geojson`, `GET /activities/geojson` in `backend/app/api/activities.py`
+- [x] T095 [US1] Implement Strava webhook verification endpoint `GET /webhook/strava` and event receiver `POST /webhook/strava` in `backend/app/api/webhook.py`
+- [x] T096 [US1] Implement webhook event handler: dispatch activity create/update/delete events, trigger incremental sync for matching user in `backend/app/services/webhook.py`
 
 ### Frontend — US1
 
-- [ ] T033 [P] [US1] Create HomePage with "Connect with Strava" button and OAuth redirect in `frontend/src/pages/HomePage.tsx`
-- [ ] T034 [P] [US1] Create auth callback handler page (process OAuth code, store session, redirect to map) in `frontend/src/pages/AuthCallbackPage.tsx`
-- [ ] T035 [US1] Implement auth API methods (strava login, callback, logout) in `frontend/src/api/client.ts`
-- [ ] T036 [US1] Add auth state management to Zustand store (user session, login/logout actions) in `frontend/src/store/index.ts`
-- [ ] T037 [US1] Implement activity route overlay layer: render GeoJSON FeatureCollection as colored Polylines on map in `frontend/src/components/Map/ActivityLayer.tsx`
-- [ ] T038 [US1] Implement activity click handler with detail popup (name, date, distance, duration, pace) in `frontend/src/components/Map/ActivityPopup.tsx`
-- [ ] T039 [US1] Implement activity filter panel (sport type dropdown, date range picker, distance range) in `frontend/src/components/ActivityList/FilterPanel.tsx`
-- [ ] T040 [US1] Implement sync status indicator component (importing/syncing progress, activity count) in `frontend/src/components/SyncStatus.tsx`
-- [ ] T041 [US1] Wire MapPage to fetch activities GeoJSON, apply filters, render ActivityLayer + FilterPanel in `frontend/src/pages/MapPage.tsx`
+- [x] T033 [P] [US1] Create HomePage with "Connect with Strava" button and OAuth redirect in `frontend/src/pages/HomePage.tsx`
+- [x] T034 [P] [US1] Create auth callback handler page (process OAuth code, store session, redirect to map) in `frontend/src/pages/AuthCallbackPage.tsx`
+- [x] T035 [US1] Implement auth API methods (strava login, callback, logout) in `frontend/src/api/client.ts`
+- [x] T036 [US1] Add auth state management to Zustand store (user session, login/logout actions) in `frontend/src/store/index.ts`
+- [x] T037 [US1] Implement activity route overlay layer: render GeoJSON FeatureCollection as colored Polylines on map in `frontend/src/components/Map/ActivityLayer.tsx`
+- [x] T038 [US1] Implement activity click handler with detail popup (name, date, distance, duration, pace) in `frontend/src/components/Map/ActivityPopup.tsx`
+- [x] T039 [US1] Implement activity filter panel (sport type dropdown, date range picker, distance range) in `frontend/src/components/ActivityList/FilterPanel.tsx`
+- [x] T040 [US1] Implement sync status indicator component (importing/syncing progress, activity count) in `frontend/src/components/SyncStatus.tsx`
+- [x] T041 [US1] Wire MapPage to fetch activities GeoJSON, apply filters, render ActivityLayer + FilterPanel in `frontend/src/pages/MapPage.tsx`
 
 **Checkpoint**: User Story 1 complete — user can connect Strava, import activities, see routes on map, filter by type/date, click for details. MVP delivered.
 
@@ -114,28 +114,28 @@
 
 ### Tests — US2 (write failing tests first)
 
-- [ ] T087 [US2] Write GPS-to-street matching unit tests with deterministic geometry (buffer, intersection, coverage_ratio, 80% threshold) in `backend/tests/unit/test_coverage.py`
-- [ ] T088 [US2] Write coverage API integration tests (city summary, neighborhood detail, street GeoJSON with status filter) in `backend/tests/integration/test_coverage_api.py`
-- [ ] T089 [P] [US2] Write frontend coverage dashboard component tests (color-coded streets, percentage display, area selector) in `frontend/tests/components/test_coverage.tsx`
+- [x] T087 [US2] Write GPS-to-street matching unit tests with deterministic geometry (buffer, intersection, coverage_ratio, 80% threshold) in `backend/tests/unit/test_coverage.py`
+- [x] T088 [US2] Write coverage API integration tests (city summary, neighborhood detail, street GeoJSON with status filter) in `backend/tests/integration/test_coverage_api.py`
+- [x] T089 [P] [US2] Write frontend coverage dashboard component tests (color-coded streets, percentage display, area selector) in `frontend/tests/components/test_coverage.tsx`
 
 ### Backend — US2
 
-- [ ] T042 [P] [US2] Create UserStreetCoverage ORM model in `backend/app/models/coverage.py` (coverage_ratio, is_traveled, first_traveled_at, FK relationships)
-- [ ] T043 [P] [US2] Create Pydantic schemas for Coverage (city summary, neighborhood detail, street GeoJSON feature) in `backend/app/schemas/coverage.py`
-- [ ] T044 [US2] Implement GPS-to-street matching service: buffer GPS trace by 15m, intersect with street segments, compute coverage_ratio, update UserStreetCoverage in `backend/app/services/coverage.py`
-- [ ] T045 [US2] Integrate coverage computation into import pipeline: trigger matching after activity GPS streams are imported in `backend/app/services/importer.py`
-- [ ] T099 [US2] Implement on-street vs off-road activity classification: mark activities with <20% street match ratio as off-road (`is_on_street=false`), exclude from coverage stats in `backend/app/services/coverage.py`
-- [ ] T046 [US2] Implement coverage API router: `GET /coverage/city/{city_id}`, `GET /coverage/neighborhood/{neighborhood_id}`, `GET /coverage/neighborhood/{neighborhood_id}/streets`, `GET /coverage/city/{city_id}/streets` in `backend/app/api/coverage.py`
-- [ ] T047 [P] [US2] Implement cities API router: `GET /cities`, `GET /cities/{city_id}/neighborhoods`, `GET /cities/{city_id}/neighborhoods/{neighborhood_id}/boundary` in `backend/app/api/cities.py`
+- [x] T042 [P] [US2] Create UserStreetCoverage ORM model in `backend/app/models/coverage.py` (coverage_ratio, is_traveled, first_traveled_at, FK relationships)
+- [x] T043 [P] [US2] Create Pydantic schemas for Coverage (city summary, neighborhood detail, street GeoJSON feature) in `backend/app/schemas/coverage.py`
+- [x] T044 [US2] Implement GPS-to-street matching service: buffer GPS trace by 15m, intersect with street segments, compute coverage_ratio, update UserStreetCoverage in `backend/app/services/coverage.py`
+- [x] T045 [US2] Integrate coverage computation into import pipeline: trigger matching after activity GPS streams are imported in `backend/app/services/importer.py`
+- [x] T099 [US2] Implement on-street vs off-road activity classification: mark activities with <20% street match ratio as off-road (`is_on_street=false`), exclude from coverage stats in `backend/app/services/coverage.py`
+- [x] T046 [US2] Implement coverage API router: `GET /coverage/city/{city_id}`, `GET /coverage/neighborhood/{neighborhood_id}`, `GET /coverage/neighborhood/{neighborhood_id}/streets`, `GET /coverage/city/{city_id}/streets` in `backend/app/api/coverage.py`
+- [x] T047 [P] [US2] Implement cities API router: `GET /cities`, `GET /cities/{city_id}/neighborhoods`, `GET /cities/{city_id}/neighborhoods/{neighborhood_id}/boundary` in `backend/app/api/cities.py`
 
 ### Frontend — US2
 
-- [ ] T048 [P] [US2] Create street coverage map layer: render street GeoJSON with color coding (green/grey) via style function in `frontend/src/components/Map/StreetCoverageLayer.tsx`
-- [ ] T049 [P] [US2] Create neighborhood boundary layer: render neighborhood polygons with click-to-select behavior in `frontend/src/components/Map/NeighborhoodLayer.tsx`
-- [ ] T050 [P] [US2] Create CoverageDashboard component: city-wide percentage, per-neighborhood breakdown table with percentages in `frontend/src/components/CoverageDashboard/CoverageSummary.tsx`
-- [ ] T051 [US2] Create city/neighborhood selector component (dropdown or map click) with flyToBounds on selection in `frontend/src/components/CoverageDashboard/AreaSelector.tsx`
-- [ ] T052 [US2] Wire CoveragePage to fetch street data + coverage stats, render StreetCoverageLayer + NeighborhoodLayer + CoverageDashboard in `frontend/src/pages/CoveragePage.tsx`
-- [ ] T053 [US2] Add coverage state (selected city, selected neighborhood, coverage data) to Zustand store in `frontend/src/store/index.ts`
+- [x] T048 [P] [US2] Create street coverage map layer: render street GeoJSON with color coding (green/grey) via style function in `frontend/src/components/Map/StreetCoverageLayer.tsx`
+- [x] T049 [P] [US2] Create neighborhood boundary layer: render neighborhood polygons with click-to-select behavior in `frontend/src/components/Map/NeighborhoodLayer.tsx`
+- [x] T050 [P] [US2] Create CoverageDashboard component: city-wide percentage, per-neighborhood breakdown table with percentages in `frontend/src/components/CoverageDashboard/CoverageSummary.tsx`
+- [x] T051 [US2] Create city/neighborhood selector component (dropdown or map click) with flyToBounds on selection in `frontend/src/components/CoverageDashboard/AreaSelector.tsx`
+- [x] T052 [US2] Wire CoveragePage to fetch street data + coverage stats, render StreetCoverageLayer + NeighborhoodLayer + CoverageDashboard in `frontend/src/pages/CoveragePage.tsx`
+- [x] T053 [US2] Add coverage state (selected city, selected neighborhood, coverage data) to Zustand store in `frontend/src/store/index.ts`
 
 **Checkpoint**: User Story 2 complete — user can see color-coded streets, neighborhood-level coverage percentages, and a city-wide dashboard. Works independently from US3/US4.
 
@@ -149,25 +149,25 @@
 
 ### Tests — US3 (write failing tests first)
 
-- [ ] T090 [US3] Write OSRM client unit tests with stubbed HTTP responses (`/nearest`, `/trip`, `/route` parsing) in `backend/tests/unit/test_routing.py`
-- [ ] T091 [US3] Write route suggestion algorithm tests (waypoint selection, distance iteration, 100%-covered fallback) in `backend/tests/unit/test_route_algorithm.py`
-- [ ] T092 [P] [US3] Write frontend route suggestion component tests (form inputs, route display, detail panel) in `frontend/tests/components/test_route.tsx`
+- [x] T090 [US3] Write OSRM client unit tests with stubbed HTTP responses (`/nearest`, `/trip`, `/route` parsing) in `backend/tests/unit/test_routing.py`
+- [x] T091 [US3] Write route suggestion algorithm tests (waypoint selection, distance iteration, 100%-covered fallback) in `backend/tests/unit/test_route_algorithm.py`
+- [x] T092 [P] [US3] Write frontend route suggestion component tests (form inputs, route display, detail panel) in `frontend/tests/components/test_route.tsx`
 
 ### Backend — US3
 
-- [ ] T054 [P] [US3] Create RouteSuggestion and RouteSuggestionSegment ORM models in `backend/app/models/route.py` (all fields per data-model.md)
-- [ ] T055 [P] [US3] Create Pydantic schemas for route suggestion (request body, response with geometry + segments) in `backend/app/schemas/route.py`
-- [ ] T056 [US3] Implement OSRM client service: `/nearest`, `/trip`, `/route` endpoints, GeoJSON response parsing in `backend/app/services/routing.py`
-- [ ] T057 [US3] Implement route suggestion algorithm: query untraveled streets, select waypoint midpoints, call OSRM `/trip`, iterate to match target distance in `backend/app/services/routing.py`
-- [ ] T058 [US3] Handle "100% covered" case: detect full coverage, find neighboring neighborhoods with lowest coverage, return suggestion in `backend/app/services/routing.py`
-- [ ] T059 [US3] Implement routes API router: `POST /routes/suggest`, `GET /routes/history` in `backend/app/api/routes.py`
+- [x] T054 [P] [US3] Create RouteSuggestion and RouteSuggestionSegment ORM models in `backend/app/models/route.py` (all fields per data-model.md)
+- [x] T055 [P] [US3] Create Pydantic schemas for route suggestion (request body, response with geometry + segments) in `backend/app/schemas/route.py`
+- [x] T056 [US3] Implement OSRM client service: `/nearest`, `/trip`, `/route` endpoints, GeoJSON response parsing in `backend/app/services/routing.py`
+- [x] T057 [US3] Implement route suggestion algorithm: query untraveled streets, select waypoint midpoints, call OSRM `/trip`, iterate to match target distance in `backend/app/services/routing.py`
+- [x] T058 [US3] Handle "100% covered" case: detect full coverage, find neighboring neighborhoods with lowest coverage, return suggestion in `backend/app/services/routing.py`
+- [x] T059 [US3] Implement routes API router: `POST /routes/suggest`, `GET /routes/history` in `backend/app/api/routes.py`
 
 ### Frontend — US3
 
-- [ ] T060 [P] [US3] Create route suggestion form component (starting point picker, distance input, neighborhood dropdown) in `frontend/src/components/RouteSuggestion/RouteForm.tsx`
-- [ ] T061 [P] [US3] Create route display layer: render suggested route polyline with untraveled segments highlighted in contrasting color in `frontend/src/components/Map/RouteLayer.tsx`
-- [ ] T062 [US3] Create route detail panel: total distance, untraveled ratio, segment list with street names in `frontend/src/components/RouteSuggestion/RouteDetail.tsx`
-- [ ] T063 [US3] Wire RoutePage to request suggestion, display RouteLayer + RouteForm + RouteDetail in `frontend/src/pages/RoutePage.tsx`
+- [x] T060 [P] [US3] Create route suggestion form component (starting point picker, distance input, neighborhood dropdown) in `frontend/src/components/RouteSuggestion/RouteForm.tsx`
+- [x] T061 [P] [US3] Create route display layer: render suggested route polyline with untraveled segments highlighted in contrasting color in `frontend/src/components/Map/RouteLayer.tsx`
+- [x] T062 [US3] Create route detail panel: total distance, untraveled ratio, segment list with street names in `frontend/src/components/RouteSuggestion/RouteDetail.tsx`
+- [x] T063 [US3] Wire RoutePage to request suggestion, display RouteLayer + RouteForm + RouteDetail in `frontend/src/pages/RoutePage.tsx`
 
 **Checkpoint**: User Story 3 complete — user can generate route suggestions that prioritize untraveled streets, view them on the map, and see segment details.
 
@@ -181,23 +181,23 @@
 
 ### Tests — US4 (write failing tests first)
 
-- [ ] T093 [US4] Write snapshot/milestone service unit tests (daily snapshots, 25/50/75/100% detection, timestamp accuracy) in `backend/tests/unit/test_progress.py`
-- [ ] T094 [P] [US4] Write frontend progress timeline component tests (chart rendering, milestone badges, stats display) in `frontend/tests/components/test_progress.tsx`
+- [x] T093 [US4] Write snapshot/milestone service unit tests (daily snapshots, 25/50/75/100% detection, timestamp accuracy) in `backend/tests/unit/test_progress.py`
+- [x] T094 [P] [US4] Write frontend progress timeline component tests (chart rendering, milestone badges, stats display) in `frontend/tests/components/test_progress.tsx`
 
 ### Backend — US4
 
-- [ ] T064 [P] [US4] Create CoverageSnapshot ORM model in `backend/app/models/coverage.py` (milestone tracking, snapshot_date, coverage_percentage per area)
-- [ ] T065 [P] [US4] Create Pydantic schemas for progress (timeline entry, milestone, overall stats) in `backend/app/schemas/progress.py`
-- [ ] T066 [US4] Implement snapshot service: record daily coverage snapshots, detect milestones (25/50/75/100%), associate timestamps in `backend/app/services/progress.py`
-- [ ] T067 [US4] Integrate snapshot creation into coverage computation pipeline: trigger after coverage recalculation in `backend/app/services/coverage.py`
-- [ ] T068 [US4] Implement progress API router: `GET /progress/city/{city_id}` (timeline + milestones), `GET /progress/stats` (overall stats) in `backend/app/api/progress.py`
+- [x] T064 [P] [US4] Create CoverageSnapshot ORM model in `backend/app/models/coverage.py` (milestone tracking, snapshot_date, coverage_percentage per area)
+- [x] T065 [P] [US4] Create Pydantic schemas for progress (timeline entry, milestone, overall stats) in `backend/app/schemas/progress.py`
+- [x] T066 [US4] Implement snapshot service: record daily coverage snapshots, detect milestones (25/50/75/100%), associate timestamps in `backend/app/services/progress.py`
+- [x] T067 [US4] Integrate snapshot creation into coverage computation pipeline: trigger after coverage recalculation in `backend/app/services/coverage.py`
+- [x] T068 [US4] Implement progress API router: `GET /progress/city/{city_id}` (timeline + milestones), `GET /progress/stats` (overall stats) in `backend/app/api/progress.py`
 
 ### Frontend — US4
 
-- [ ] T069 [P] [US4] Create progress timeline chart component (line chart of coverage % over time, milestone markers) in `frontend/src/components/ProgressTimeline/TimelineChart.tsx`
-- [ ] T070 [P] [US4] Create milestone list component (achievement badges with dates for each neighborhood) in `frontend/src/components/ProgressTimeline/MilestoneList.tsx`
-- [ ] T071 [P] [US4] Create overall stats component (total unique streets, total distance, activity count, city coverage) in `frontend/src/components/ProgressTimeline/StatsOverview.tsx`
-- [ ] T072 [US4] Wire ProgressPage to fetch timeline + milestones + stats, render chart + milestones + stats in `frontend/src/pages/ProgressPage.tsx`
+- [x] T069 [P] [US4] Create progress timeline chart component (line chart of coverage % over time, milestone markers) in `frontend/src/components/ProgressTimeline/TimelineChart.tsx`
+- [x] T070 [P] [US4] Create milestone list component (achievement badges with dates for each neighborhood) in `frontend/src/components/ProgressTimeline/MilestoneList.tsx`
+- [x] T071 [P] [US4] Create overall stats component (total unique streets, total distance, activity count, city coverage) in `frontend/src/components/ProgressTimeline/StatsOverview.tsx`
+- [x] T072 [US4] Wire ProgressPage to fetch timeline + milestones + stats, render chart + milestones + stats in `frontend/src/pages/ProgressPage.tsx`
 
 **Checkpoint**: User Story 4 complete — user can track coverage progress over time, see milestones, and view overall statistics.
 
@@ -207,17 +207,17 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T073 [P] Add navigation header with links to Map, Coverage, Route, Progress pages in `frontend/src/components/Layout/NavBar.tsx`
-- [ ] T074 [P] Implement responsive layout shell (sidebar + map layout, collapsible on mobile) in `frontend/src/components/Layout/AppLayout.tsx`
-- [ ] T075 Handle Strava token refresh in auth middleware: auto-refresh expired tokens before API calls in `backend/app/services/strava.py`
-- [ ] T076 Handle Strava rate limiting with exponential backoff and user notification in `backend/app/services/importer.py`
-- [ ] T077 [P] Add loading states and error boundaries to all frontend pages in `frontend/src/components/common/`
-- [ ] T078 [P] Add GPS quality detection: flag activities with significant GPS gaps for user review in `backend/app/services/importer.py`
-- [ ] T079 Run quickstart.md validation: verify full setup flow end-to-end
-- [ ] T080 [P] Create OSRM Docker Compose configuration for local development in `docker-compose.yml`
-- [ ] T097 Detect Strava token revocation (401 responses during sync), set user sync_status to "revoked", preserve all imported data in `backend/app/services/strava.py`
-- [ ] T098 [P] Add Strava reconnection prompt banner when sync_status is "revoked" in `frontend/src/components/ReconnectBanner.tsx`
-- [ ] T100 [P] Create street network refresh script for re-downloading OSM data per city and recalculating coverage in `backend/app/scripts/refresh_streets.py`
+- [x] T073 [P] Add navigation header with links to Map, Coverage, Route, Progress pages in `frontend/src/components/Layout/NavBar.tsx`
+- [x] T074 [P] Implement responsive layout shell (sidebar + map layout, collapsible on mobile) in `frontend/src/components/Layout/AppLayout.tsx`
+- [x] T075 Handle Strava token refresh in auth middleware: auto-refresh expired tokens before API calls in `backend/app/services/strava.py`
+- [x] T076 Handle Strava rate limiting with exponential backoff and user notification in `backend/app/services/importer.py`
+- [x] T077 [P] Add loading states and error boundaries to all frontend pages in `frontend/src/components/common/`
+- [x] T078 [P] Add GPS quality detection: flag activities with significant GPS gaps for user review in `backend/app/services/importer.py`
+- [x] T079 Run quickstart.md validation: verify full setup flow end-to-end
+- [x] T080 [P] Create OSRM Docker Compose configuration for local development in `docker-compose.yml`
+- [x] T097 Detect Strava token revocation (401 responses during sync), set user sync_status to "revoked", preserve all imported data in `backend/app/services/strava.py`
+- [x] T098 [P] Add Strava reconnection prompt banner when sync_status is "revoked" in `frontend/src/components/ReconnectBanner.tsx`
+- [x] T100 [P] Create street network refresh script for re-downloading OSM data per city and recalculating coverage in `backend/app/scripts/refresh_streets.py`
 
 ---
 

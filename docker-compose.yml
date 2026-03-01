@@ -1,0 +1,51 @@
+# T080 — Docker Compose for local OSRM development
+#
+# Provides a local OSRM routing server with foot profile for Seattle.
+# Downloads OSM data and pre-processes it on first run.
+#
+# Usage:
+#   docker compose up osrm-prepare   # One-time data prep
+#   docker compose up osrm            # Start routing server
+#
+# Then configure: OSRM_URL=http://localhost:5000
+
+services:
+  # One-time data preparation (download + extract + contract)
+  osrm-prepare:
+    image: osrm/osrm-backend:latest
+    volumes:
+      - osrm-data:/data
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      if [ ! -f /data/washington-latest.osm.pbf ]; then
+        echo 'Downloading Washington state OSM data...'
+        apt-get update && apt-get install -y wget
+        wget -O /data/washington-latest.osm.pbf https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf
+      fi
+      if [ ! -f /data/washington-latest.osrm ]; then
+        echo 'Extracting with foot profile...'
+        osrm-extract -p /opt/foot.lua /data/washington-latest.osm.pbf
+        osrm-partition /data/washington-latest.osrm
+        osrm-customize /data/washington-latest.osrm
+      fi
+      echo 'OSRM data preparation complete.'
+      "
+    profiles:
+      - prepare
+
+  # OSRM routing server
+  osrm:
+    image: osrm/osrm-backend:latest
+    volumes:
+      - osrm-data:/data
+    ports:
+      - "5000:5000"
+    command: osrm-routed --algorithm mld /data/washington-latest.osrm
+    depends_on:
+      osrm-prepare:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  osrm-data:
