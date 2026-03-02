@@ -24,15 +24,15 @@
 
 **Purpose**: Project initialization, backend + frontend scaffolding, tooling
 
-- [ ] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
-- [ ] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
-- [ ] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
-- [ ] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
-- [ ] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
-- [ ] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
-- [ ] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
-- [ ] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
-- [ ] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
+- [x] T001 Create project directory structure per plan.md (`backend/`, `frontend/`, folder trees)
+- [x] T002 Initialize Python backend with pyproject.toml and requirements.txt in `backend/` (FastAPI, Uvicorn, SQLAlchemy, GeoAlchemy2, Shapely, GeoPandas, OSMnx, httpx, cryptography, python-dotenv)
+- [x] T003 [P] Initialize React frontend with Vite + TypeScript in `frontend/` (react-leaflet, leaflet, zustand, react-router-dom)
+- [x] T004 [P] Configure backend linting/formatting: ruff config in `backend/pyproject.toml`
+- [x] T005 [P] Configure frontend linting/formatting: ESLint + Prettier config in `frontend/`
+- [x] T006 [P] Create backend `.env.example` with all required env vars in `backend/.env.example`
+- [x] T007 [P] Create frontend `.env.example` with VITE_API_URL in `frontend/.env.example`
+- [x] T081 [P] Configure pytest with SpatiaLite test fixtures, conftest with in-memory test DB, and sample geometry factories in `backend/tests/conftest.py`
+- [x] T082 [P] Configure Vitest + React Testing Library with map mock utilities in `frontend/vitest.config.ts` and `frontend/tests/setup.ts`
 
 ---
 
@@ -317,3 +317,13 @@ Task T050: "Create CoverageDashboard component"
 ### Key Risk: Strava Rate Limits
 
 The two-phase import strategy (T030) is critical. Phase A (polyline fetch) gets routes on the map fast. Phase B (GPS streams) runs in background for street matching accuracy. Monitor rate limits during T076.
+
+---
+
+## Phase 8: Post-Implementation Improvements
+
+**Purpose**: Bugs and refactors identified during code review
+
+- [ ] T101 Fix sync error status rollback bug in `backend/app/api/sync.py` — when `import_phase_a` fails mid-sync, `session.rollback()` in `get_db()` undoes the `sync_status="error"` update. Use a separate transaction or background task for status updates so failure state is persisted.
+- [ ] T102 [P] DRY up neighborhood coverage calculation in `backend/app/api/cities.py` — `list_neighborhoods` and `neighborhood_boundary` duplicate the street-coverage counting logic. Extract to a shared helper (similar to `_neighborhood_coverage()` in `backend/app/api/coverage.py`).
+- [ ] T103 [P] Extract business logic from route suggestion endpoint in `backend/app/api/routes.py` — `suggest_route` is ~140 lines mixing HTTP concerns with DB queries, coverage lookups, OSRM orchestration, fallback logic, and persistence. Move to `backend/app/services/routing.py`.

@@ -2,12 +2,15 @@
 Database engine, session management, and SpatiaLite extension loading.
 """
 
+import logging
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -25,6 +28,12 @@ def _load_spatialite(dbapi_conn, connection_record):
             break
         except Exception:
             continue
+    else:
+        logger.warning(
+            "SpatiaLite extension not found. "
+            "Spatial queries will not work. "
+            "Install SpatiaLite to enable geospatial features."
+        )
     dbapi_conn.enable_load_extension(False)
 
 
