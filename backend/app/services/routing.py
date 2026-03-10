@@ -22,6 +22,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 
 
+class OSRMUnavailableError(Exception):
+    """Raised when the OSRM server cannot be reached."""
+
+
 # ---------------------------------------------------------------------------
 # OSRM HTTP Client (T056)
 # ---------------------------------------------------------------------------
@@ -35,11 +39,21 @@ class OSRMClient:
         self.profile = profile
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
-        async with httpx.AsyncClient(timeout=30) as client:
-            url = f"{self.base_url}{path}"
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                url = f"{self.base_url}{path}"
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                return resp.json()
+        except httpx.ConnectError:
+            raise OSRMUnavailableError(
+                "OSRM routing server is not reachable. "
+                "Start it with: docker compose up osrm -d"
+            )
+        except httpx.HTTPStatusError as exc:
+            raise OSRMUnavailableError(
+                f"OSRM returned an error: {exc.response.status_code}"
+            )
 
     async def nearest(self, lng: float, lat: float) -> dict | None:
         """Snap a coordinate to the nearest routable point."""
@@ -264,22 +278,87 @@ class RoutePlannerService:
         street_query = self.db.query(StreetSegment).filter_by(city_id=city_id)
         if neighborhood_id:
             street_query = street_query.filter_by(neighborhood_id=neighborhood_id)
+        else:
+            # Without a neighborhood filter we'd load 300k+ streets which is
+            # too many for waypoint selection.  Narrow to a bbox around the
+            # start point (~2 km radius) using the R-tree spatial index
+            # kept as a SQL subquery to avoid materializing thousands of IDs.
+            from sqlalchemy import text as sa_text, column as sa_column
+            from app.services.coverage import _approx_buffer_degrees
+
+            pad = _approx_buffer_degrees(2000)  # ~2 km in degrees
+            rtree_subq = (
+                sa_text(
+                    "SELECT ROWID FROM SpatialIndex "
+                    "WHERE f_table_name = 'street_segments' "
+                    "AND f_geometry_column = 'geometry' "
+                    "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
+                )
+                .bindparams(
+                    minx=start_lng - pad,
+                    miny=start_lat - pad,
+                    maxx=start_lng + pad,
+                    maxy=start_lat + pad,
+                )
+                .columns(sa_column("ROWID"))
+            )
+            street_query = (
+                street_query
+                .filter(StreetSegment.id.in_(rtree_subq))
+            )
+
         db_streets = street_query.all()
 
         if not db_streets:
             return {"error": "NOT_FOUND", "message": "No streets found in this area"}
 
         # 2. Build coverage lookup ----------------------------------------
-        street_ids = [s.id for s in db_streets]
-        cov_rows = (
-            self.db.query(UserStreetCoverage)
-            .filter(
-                UserStreetCoverage.user_id == user_id,
-                UserStreetCoverage.street_segment_id.in_(street_ids),
+        #    Use a single query to avoid SQLite variable limits with large
+        #    street lists.  Fetch coverage for this user where street is in
+        #    the same city (fast index scan).
+        cov_id_set: set[int] = set()
+        if neighborhood_id:
+            cov_rows = (
+                self.db.query(UserStreetCoverage.street_segment_id)
+                .join(StreetSegment, StreetSegment.id == UserStreetCoverage.street_segment_id)
+                .filter(
+                    UserStreetCoverage.user_id == user_id,
+                    StreetSegment.neighborhood_id == neighborhood_id,
+                )
+                .all()
             )
-            .all()
-        )
-        cov_map = {r.street_segment_id: r.is_traveled for r in cov_rows}
+            cov_id_set = {r[0] for r in cov_rows}
+        else:
+            # Use same R-tree bbox to scope the coverage lookup
+            from sqlalchemy import text as sa_text2, column as sa_col2
+            from app.services.coverage import _approx_buffer_degrees as _abd2
+            pad2 = _abd2(2000)
+            rtree_subq2 = (
+                sa_text2(
+                    "SELECT ROWID FROM SpatialIndex "
+                    "WHERE f_table_name = 'street_segments' "
+                    "AND f_geometry_column = 'geometry' "
+                    "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
+                )
+                .bindparams(
+                    minx=start_lng - pad2,
+                    miny=start_lat - pad2,
+                    maxx=start_lng + pad2,
+                    maxy=start_lat + pad2,
+                )
+                .columns(sa_col2("ROWID"))
+            )
+            cov_rows = (
+                self.db.query(UserStreetCoverage.street_segment_id)
+                .join(StreetSegment, StreetSegment.id == UserStreetCoverage.street_segment_id)
+                .filter(
+                    UserStreetCoverage.user_id == user_id,
+                    StreetSegment.id.in_(rtree_subq2),
+                )
+                .all()
+            )
+            cov_id_set = {r[0] for r in cov_rows}
+        cov_map = {sid: True for sid in cov_id_set}
 
         # 3. Prepare streets for the engine -------------------------------
         streets_for_engine: list[dict[str, Any]] = []
@@ -299,11 +378,14 @@ class RoutePlannerService:
             )
 
         # 4. Call the suggestion engine -----------------------------------
-        result = await self.engine.suggest(
-            start=(start_lng, start_lat),
-            target_distance=distance_meters,
-            streets=streets_for_engine,
-        )
+        try:
+            result = await self.engine.suggest(
+                start=(start_lng, start_lat),
+                target_distance=distance_meters,
+                streets=streets_for_engine,
+            )
+        except OSRMUnavailableError as exc:
+            return {"error": "OSRM_UNAVAILABLE", "message": str(exc)}
 
         # 5. 100 %-covered fallback ---------------------------------------
         if result["route"] is None:

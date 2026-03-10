@@ -105,7 +105,15 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(500)
     async def internal_error_handler(request: Request, exc):
+        import traceback
+        traceback.print_exc()
         return error_response("INTERNAL_ERROR", "Internal server error", 500)
+
+    @app.exception_handler(Exception)
+    async def unhandled_error_handler(request: Request, exc: Exception):
+        import traceback
+        traceback.print_exc()
+        return error_response("INTERNAL_ERROR", str(exc), 500)
 
     # --- Routers ---
     from app.api.auth import router as auth_router
