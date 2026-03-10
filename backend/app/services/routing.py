@@ -4,6 +4,8 @@ Routing service — OSRM client + route suggestion algorithm (T056-T058).
 - OSRMClient: HTTP client for /nearest, /trip, /route
 - RouteSuggestionEngine: selects waypoints from untraveled streets,
   calls OSRM to generate optimized routes, iterates to match target distance.
+- RoutePlannerService: orchestrates full route suggestion flow including
+  DB queries, coverage lookup, OSRM routing, fallback, and persistence.
 - 100%-covered fallback: detect & suggest neighboring neighborhoods.
 """
 
@@ -13,7 +15,9 @@ import random
 from typing import Any
 
 import httpx
-from shapely.geometry import LineString
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import LineString, Point
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
@@ -206,3 +210,214 @@ class RouteSuggestionEngine:
             "untraveled_ratio": untraveled_ratio,
             "message": None,
         }
+
+
+# ---------------------------------------------------------------------------
+# Route Planner Service (T103 — extracted from routes.py endpoint)
+# ---------------------------------------------------------------------------
+
+
+class RoutePlannerService:
+    """Orchestrates the full route suggestion flow.
+
+    Responsibilities (previously inline in the ``suggest_route`` endpoint):
+    - Query street segments and coverage data from the DB
+    - Prepare streets for :class:`RouteSuggestionEngine`
+    - Call OSRM via the engine to generate a route
+    - Handle the 100 %-covered fallback (suggest neighborhoods)
+    - Persist :class:`RouteSuggestion` and :class:`RouteSuggestionSegment`
+    - Return the API-ready response dict
+    """
+
+    def __init__(
+        self,
+        db: Session,
+        engine: RouteSuggestionEngine | None = None,
+    ):
+        self.db = db
+        self.engine = engine or RouteSuggestionEngine()
+
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
+
+    async def suggest(
+        self,
+        *,
+        user_id: int,
+        city_id: int,
+        neighborhood_id: int | None,
+        start_lng: float,
+        start_lat: float,
+        distance_meters: float,
+    ) -> dict:
+        """Generate, persist, and return a route suggestion.
+
+        Returns a dict ready to be serialised as the JSON response body.
+        """
+        from app.models.coverage import UserStreetCoverage
+        from app.models.neighborhood import Neighborhood
+        from app.models.route import RouteSuggestion, RouteSuggestionSegment
+        from app.models.street import StreetSegment
+
+        # 1. Query streets (optionally filtered by neighborhood) ----------
+        street_query = self.db.query(StreetSegment).filter_by(city_id=city_id)
+        if neighborhood_id:
+            street_query = street_query.filter_by(neighborhood_id=neighborhood_id)
+        db_streets = street_query.all()
+
+        if not db_streets:
+            return {"error": "NOT_FOUND", "message": "No streets found in this area"}
+
+        # 2. Build coverage lookup ----------------------------------------
+        street_ids = [s.id for s in db_streets]
+        cov_rows = (
+            self.db.query(UserStreetCoverage)
+            .filter(
+                UserStreetCoverage.user_id == user_id,
+                UserStreetCoverage.street_segment_id.in_(street_ids),
+            )
+            .all()
+        )
+        cov_map = {r.street_segment_id: r.is_traveled for r in cov_rows}
+
+        # 3. Prepare streets for the engine -------------------------------
+        streets_for_engine: list[dict[str, Any]] = []
+        for s in db_streets:
+            try:
+                geom = to_shape(s.geometry)
+            except Exception:
+                continue
+            streets_for_engine.append(
+                {
+                    "id": s.id,
+                    "geometry": geom,
+                    "length_meters": s.length_meters,
+                    "is_traveled": cov_map.get(s.id, False),
+                    "name": s.name,
+                }
+            )
+
+        # 4. Call the suggestion engine -----------------------------------
+        result = await self.engine.suggest(
+            start=(start_lng, start_lat),
+            target_distance=distance_meters,
+            streets=streets_for_engine,
+        )
+
+        # 5. 100 %-covered fallback ---------------------------------------
+        if result["route"] is None:
+            return self._fallback_response(city_id, cov_map, result, Neighborhood)
+
+        # 6. Persist the suggestion ---------------------------------------
+        route_data = result["route"]
+        route_geom = LineString(
+            [(c[0], c[1]) for c in route_data["geometry"]["coordinates"]]
+        )
+        untraveled_dist = route_data["distance"] * result["untraveled_ratio"]
+
+        suggestion = RouteSuggestion(
+            user_id=user_id,
+            city_id=city_id,
+            neighborhood_id=neighborhood_id,
+            start_point=from_shape(Point(start_lng, start_lat), srid=4326),
+            route_geometry=from_shape(route_geom, srid=4326),
+            distance_meters=route_data["distance"],
+            estimated_duration_seconds=int(route_data["duration"]),
+            requested_distance_meters=distance_meters,
+            untraveled_distance_meters=untraveled_dist,
+            untraveled_ratio=result["untraveled_ratio"],
+        )
+        self.db.add(suggestion)
+        self.db.flush()
+
+        # 7. Build & persist segment list ---------------------------------
+        segments_info = self._persist_segments(
+            suggestion, streets_for_engine, RouteSuggestionSegment,
+        )
+
+        return {
+            "route": {
+                "id": suggestion.id,
+                "distance_meters": route_data["distance"],
+                "estimated_duration_seconds": int(route_data["duration"]),
+                "untraveled_distance_meters": untraveled_dist,
+                "untraveled_ratio": result["untraveled_ratio"],
+                "geometry": route_data["geometry"],
+            },
+            "segments": segments_info[:50],
+        }
+
+    # ------------------------------------------------------------------ #
+    # Internals
+    # ------------------------------------------------------------------ #
+
+    def _fallback_response(
+        self,
+        city_id: int,
+        cov_map: dict[int, bool],
+        engine_result: dict,
+        NeighborhoodModel: type,
+    ) -> dict:
+        """Build the response when all streets are 100 % covered."""
+        from app.models.street import StreetSegment
+
+        neighborhoods = (
+            self.db.query(NeighborhoodModel)
+            .filter_by(city_id=city_id)
+            .all()
+        )
+        suggestions: list[dict] = []
+        for n in neighborhoods:
+            n_streets = [
+                s.id
+                for s in self.db.query(StreetSegment.id)
+                .filter_by(neighborhood_id=n.id)
+                .all()
+            ]
+            if not n_streets:
+                continue
+            traveled = sum(1 for sid in n_streets if cov_map.get(sid, False))
+            pct = traveled / len(n_streets) * 100
+            if pct < 100:
+                suggestions.append(
+                    {"id": n.id, "name": n.name, "coverage_percentage": round(pct, 1)}
+                )
+
+        suggestions.sort(key=lambda x: x["coverage_percentage"])
+
+        return {
+            "route": None,
+            "segments": [],
+            "message": engine_result.get("message", "All streets covered."),
+            "suggested_neighborhoods": suggestions[:5],
+        }
+
+    def _persist_segments(
+        self,
+        suggestion: Any,
+        streets_for_engine: list[dict],
+        SegmentModel: type,
+    ) -> list[dict]:
+        """Create ``RouteSuggestionSegment`` rows and return segment info."""
+        untraveled_ids = {s["id"] for s in streets_for_engine if not s["is_traveled"]}
+        segments_info: list[dict] = []
+
+        for i, s in enumerate(streets_for_engine):
+            if s["id"] in untraveled_ids:
+                seg = SegmentModel(
+                    route_suggestion_id=suggestion.id,
+                    street_segment_id=s["id"],
+                    sequence_order=i + 1,
+                    is_untraveled=not s["is_traveled"],
+                )
+                self.db.add(seg)
+                segments_info.append(
+                    {
+                        "street_name": s.get("name") or "Unnamed",
+                        "is_untraveled": not s["is_traveled"],
+                        "length_meters": s["length_meters"],
+                    }
+                )
+        self.db.flush()
+        return segments_info

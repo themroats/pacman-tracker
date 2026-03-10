@@ -9,20 +9,16 @@ Endpoints:
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header
-from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import Point, LineString
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.main import AppError
 from app.models.city import City
-from app.models.coverage import UserStreetCoverage
 from app.models.neighborhood import Neighborhood
-from app.models.route import RouteSuggestion, RouteSuggestionSegment
-from app.models.street import StreetSegment
+from app.models.route import RouteSuggestion
 from app.models.user import User
 from app.schemas.route import RouteSuggestRequest
-from app.services.routing import OSRMClient, RouteSuggestionEngine
+from app.services.routing import RoutePlannerService
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
@@ -58,129 +54,22 @@ async def suggest_route(
     if lng is None or lat is None:
         raise AppError("VALIDATION_ERROR", "start_point must have lng and lat", 400)
 
-    # Query street segments (optionally filtered by neighborhood)
-    street_query = db.query(StreetSegment).filter_by(city_id=body.city_id)
-    if body.neighborhood_id:
-        street_query = street_query.filter_by(neighborhood_id=body.neighborhood_id)
-    db_streets = street_query.all()
-
-    if not db_streets:
-        raise AppError("NOT_FOUND", "No streets found in this area", 404)
-
-    # Build coverage lookup
-    street_ids = [s.id for s in db_streets]
-    cov_rows = (
-        db.query(UserStreetCoverage)
-        .filter(
-            UserStreetCoverage.user_id == user.id,
-            UserStreetCoverage.street_segment_id.in_(street_ids),
-        )
-        .all()
-    )
-    cov_map = {r.street_segment_id: r.is_traveled for r in cov_rows}
-
-    # Prepare streets for the engine
-    streets_for_engine = []
-    for s in db_streets:
-        try:
-            geom = to_shape(s.geometry)
-        except Exception:
-            continue
-        streets_for_engine.append(
-            {
-                "id": s.id,
-                "geometry": geom,
-                "length_meters": s.length_meters,
-                "is_traveled": cov_map.get(s.id, False),
-                "name": s.name,
-            }
-        )
-
-    engine = RouteSuggestionEngine()
-    result = await engine.suggest(
-        start=(lng, lat),
-        target_distance=body.distance_meters,
-        streets=streets_for_engine,
-    )
-
-    # 100 %-covered fallback
-    if result["route"] is None:
-        # Suggest neighborhoods with lowest coverage
-        neighborhoods = (
-            db.query(Neighborhood).filter_by(city_id=body.city_id).all()
-        )
-        suggestions = []
-        for n in neighborhoods:
-            n_streets = [s.id for s in db.query(StreetSegment.id).filter_by(neighborhood_id=n.id).all()]
-            if not n_streets:
-                continue
-            traveled = sum(1 for sid in n_streets if cov_map.get(sid, False))
-            pct = traveled / len(n_streets) * 100
-            if pct < 100:
-                suggestions.append({"id": n.id, "name": n.name, "coverage_percentage": round(pct, 1)})
-
-        suggestions.sort(key=lambda x: x["coverage_percentage"])
-
-        return {
-            "route": None,
-            "segments": [],
-            "message": result.get("message", "All streets covered."),
-            "suggested_neighborhoods": suggestions[:5],
-        }
-
-    # Persist the suggestion
-    route_data = result["route"]
-    route_geom = LineString(
-        [(c[0], c[1]) for c in route_data["geometry"]["coordinates"]]
-    )
-    untraveled_dist = route_data["distance"] * result["untraveled_ratio"]
-
-    suggestion = RouteSuggestion(
+    # Delegate to service
+    planner = RoutePlannerService(db)
+    result = await planner.suggest(
         user_id=user.id,
         city_id=body.city_id,
         neighborhood_id=body.neighborhood_id,
-        start_point=from_shape(Point(lng, lat), srid=4326),
-        route_geometry=from_shape(route_geom, srid=4326),
-        distance_meters=route_data["distance"],
-        estimated_duration_seconds=int(route_data["duration"]),
-        requested_distance_meters=body.distance_meters,
-        untraveled_distance_meters=untraveled_dist,
-        untraveled_ratio=result["untraveled_ratio"],
+        start_lng=lng,
+        start_lat=lat,
+        distance_meters=body.distance_meters,
     )
-    db.add(suggestion)
-    db.flush()
 
-    # Build segment list from waypoints matched to streets
-    segments_info = []
-    for i, s in enumerate(streets_for_engine):
-        if s["id"] in {r["id"] for r in streets_for_engine if not r["is_traveled"]}:
-            seg = RouteSuggestionSegment(
-                route_suggestion_id=suggestion.id,
-                street_segment_id=s["id"],
-                sequence_order=i + 1,
-                is_untraveled=not s["is_traveled"],
-            )
-            db.add(seg)
-            segments_info.append(
-                {
-                    "street_name": s.get("name") or "Unnamed",
-                    "is_untraveled": not s["is_traveled"],
-                    "length_meters": s["length_meters"],
-                }
-            )
-    db.flush()
+    # Handle service-level errors
+    if "error" in result:
+        raise AppError(result["error"], result["message"], 404)
 
-    return {
-        "route": {
-            "id": suggestion.id,
-            "distance_meters": route_data["distance"],
-            "estimated_duration_seconds": int(route_data["duration"]),
-            "untraveled_distance_meters": untraveled_dist,
-            "untraveled_ratio": result["untraveled_ratio"],
-            "geometry": route_data["geometry"],
-        },
-        "segments": segments_info[:50],  # Cap for response size
-    }
+    return result
 
 
 @router.get("/history")
