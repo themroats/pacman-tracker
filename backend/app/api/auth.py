@@ -7,7 +7,9 @@ Endpoints:
 - POST /auth/logout           → End user session
 """
 
+import asyncio
 import datetime
+import logging
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -19,6 +21,8 @@ from app.models.user import User
 from app.schemas.user import AuthCallbackResponse, LogoutResponse
 from app.services.crypto import encrypt_token
 from app.services.strava import StravaOAuthService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -88,6 +92,13 @@ async def strava_callback(
         if user.sync_status == "revoked":
             user.sync_status = "importing"
 
+    # Commit so the user exists in DB before background import starts
+    db.commit()
+
+    # Kick off background import if user is in "importing" state
+    if user.sync_status == "importing":
+        asyncio.create_task(_run_background_import(user.id, token_data["access_token"]))
+
     return AuthCallbackResponse(
         user_id=user.id,
         display_name=user.display_name,
@@ -95,6 +106,41 @@ async def strava_callback(
         home_city=user.home_city_id,
         sync_status=user.sync_status,
     )
+
+
+async def _run_background_import(user_id: int, access_token: str):
+    """Run the activity import in the background after OAuth callback."""
+    from app.database import get_session_factory
+    from app.services.importer import ActivityImporter
+
+    logger.info("Starting background import for user %d", user_id)
+    factory = get_session_factory()
+    session = factory()
+
+    try:
+        importer = ActivityImporter(db_session=session)
+        result = await importer.import_phase_a(user_id=user_id, access_token=access_token)
+        logger.info("Phase A complete for user %d: %s", user_id, result)
+
+        user = session.query(User).get(user_id)
+        if user:
+            user.sync_status = "idle"
+            user.last_sync_at = datetime.datetime.now(datetime.UTC)
+
+        session.commit()
+        logger.info("Import finished for user %d — %d activities imported", user_id, result.get("imported", 0))
+    except Exception:
+        logger.exception("Background import failed for user %d", user_id)
+        session.rollback()
+        try:
+            user = session.query(User).get(user_id)
+            if user:
+                user.sync_status = "error"
+                session.commit()
+        except Exception:
+            session.rollback()
+    finally:
+        session.close()
 
 
 @router.post("/logout", response_model=LogoutResponse)

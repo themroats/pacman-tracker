@@ -31,18 +31,7 @@ router = APIRouter(prefix="/coverage", tags=["coverage"])
 # ---------------------------------------------------------------------------
 
 
-def _get_current_user(
-    db: Session = Depends(get_db),
-    authorization: str = Header(None),
-) -> User:
-    """Placeholder auth — same pattern as sync.py."""
-    if not authorization:
-        raise AppError("UNAUTHORIZED", "Missing authorization header", 401)
-    # TODO: proper token validation
-    user = db.query(User).first()
-    if not user:
-        raise AppError("UNAUTHORIZED", "User not found", 401)
-    return user
+from app.api.deps import get_current_user as _get_current_user
 
 
 def _coverage_stats_for_streets(

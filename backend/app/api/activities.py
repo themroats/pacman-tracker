@@ -30,10 +30,7 @@ from app.schemas.activity import (
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 
-def get_current_user(db: Session = Depends(get_db), **kwargs):
-    """Placeholder auth dependency — will be replaced with proper auth."""
-    from app.api.sync import get_current_user as _get_user
-    raise AppError("UNAUTHORIZED", "Auth not implemented", 401)
+from app.api.deps import get_current_user
 
 
 def _activity_to_summary(act: Activity) -> ActivitySummary:

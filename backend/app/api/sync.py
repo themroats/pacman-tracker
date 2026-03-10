@@ -6,7 +6,9 @@ Endpoints:
 - POST /sync/trigger → Trigger incremental sync
 """
 
+import asyncio
 import datetime
+import logging
 
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
@@ -16,21 +18,11 @@ from app.main import AppError
 from app.models.activity import Activity
 from app.models.user import User
 from app.schemas.user import SyncStatusResponse
+from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sync", tags=["sync"])
-
-
-def get_current_user(
-    db: Session = Depends(get_db),
-    authorization: str = Header(None),
-) -> User:
-    """Extract user from auth header. Placeholder — will be enhanced with proper session management."""
-    if not authorization:
-        raise AppError("UNAUTHORIZED", "Missing authorization header", 401)
-    # In a full implementation, decode the JWT/session token
-    # For now, extract user_id from a simple bearer token scheme
-    # This will be replaced with proper auth middleware
-    raise AppError("UNAUTHORIZED", "Auth not fully implemented", 401)
 
 
 @router.get("/status", response_model=SyncStatusResponse)
@@ -76,22 +68,55 @@ async def trigger_sync(
         raise AppError("UNAUTHORIZED", "Strava connection is revoked. Please reconnect.", 401)
 
     user.sync_status = "syncing"
-    db.flush()
+    db.commit()
 
-    # In production, this would dispatch to a background task
-    # For now, run inline
     from app.services.crypto import decrypt_token
-    from app.services.importer import ActivityImporter
 
     access_token = decrypt_token(user.access_token_encrypted)
-    importer = ActivityImporter(db_session=db)
-
-    try:
-        result = await importer.import_phase_a(user_id=user.id, access_token=access_token)
-        user.sync_status = "idle"
-        user.last_sync_at = datetime.datetime.now(datetime.UTC)
-    except Exception as e:
-        user.sync_status = "error"
-        raise AppError("INTERNAL_ERROR", f"Sync failed: {e}", 500)
+    asyncio.create_task(_run_background_sync(user.id, access_token))
 
     return {"message": "Sync started", "status": user.sync_status}
+
+
+async def _run_background_sync(user_id: int, access_token: str):
+    """Run incremental sync in the background with its own DB session.
+
+    Uses a dedicated session so that status updates (including "error")
+    are committed independently from the request lifecycle — fixing the
+    rollback bug where ``get_db()`` would undo the ``sync_status="error"``
+    update when an exception propagated through the dependency.
+    """
+    from app.database import get_session_factory
+    from app.services.importer import ActivityImporter
+
+    logger.info("Starting background sync for user %d", user_id)
+    factory = get_session_factory()
+    session = factory()
+
+    try:
+        importer = ActivityImporter(db_session=session)
+        result = await importer.import_phase_a(user_id=user_id, access_token=access_token)
+
+        user = session.query(User).get(user_id)
+        if user:
+            user.sync_status = "idle"
+            user.last_sync_at = datetime.datetime.now(datetime.UTC)
+
+        session.commit()
+        logger.info(
+            "Sync finished for user %d — %d activities imported",
+            user_id,
+            result.get("imported", 0),
+        )
+    except Exception:
+        logger.exception("Background sync failed for user %d", user_id)
+        session.rollback()
+        try:
+            user = session.query(User).get(user_id)
+            if user:
+                user.sync_status = "error"
+                session.commit()
+        except Exception:
+            session.rollback()
+    finally:
+        session.close()
