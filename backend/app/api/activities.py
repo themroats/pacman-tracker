@@ -11,6 +11,7 @@ Endpoints:
 import datetime
 from typing import Optional
 
+import polyline as polyline_codec
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.shape import to_shape
 from sqlalchemy.orm import Session
@@ -60,6 +61,18 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
                 "type": "LineString",
                 "coordinates": list(shape.coords),
             }
+        except Exception:
+            pass
+
+    # Fallback: decode summary_polyline when gps_trace geometry is missing
+    if geometry is None and act.summary_polyline:
+        try:
+            coords = polyline_codec.decode(act.summary_polyline)
+            if len(coords) >= 2:
+                geometry = {
+                    "type": "LineString",
+                    "coordinates": [[lng, lat] for lat, lng in coords],
+                }
         except Exception:
             pass
 
@@ -129,7 +142,9 @@ async def activities_geojson(
     db: Session = Depends(get_db),
 ):
     """Get all user activities as a GeoJSON FeatureCollection."""
-    query = db.query(Activity).filter(Activity.has_gps == True)  # noqa: E712
+    query = db.query(Activity).filter(
+        (Activity.has_gps == True) | (Activity.summary_polyline != None)  # noqa: E712
+    )
 
     if sport_type:
         query = query.filter(Activity.sport_type == sport_type)
