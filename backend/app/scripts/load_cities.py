@@ -25,10 +25,10 @@ from app.models.street import StreetSegment
 # Launch cities with their projected CRS
 LAUNCH_CITIES: list[dict[str, Any]] = [
     {"name": "Seattle", "state": "Washington", "projected_crs": "EPSG:2926"},
-    {"name": "Pittsburgh", "state": "Pennsylvania", "projected_crs": "EPSG:2272"},
-    {"name": "Chicago", "state": "Illinois", "projected_crs": "EPSG:3435"},
-    {"name": "New York", "state": "New York", "projected_crs": "EPSG:2263"},
-    {"name": "San Francisco", "state": "California", "projected_crs": "EPSG:2227"},
+    # {"name": "Pittsburgh", "state": "Pennsylvania", "projected_crs": "EPSG:2272"},
+    # {"name": "Chicago", "state": "Illinois", "projected_crs": "EPSG:3435"},
+    # {"name": "New York", "state": "New York", "projected_crs": "EPSG:2263"},
+    # {"name": "San Francisco", "state": "California", "projected_crs": "EPSG:2227"},
 ]
 
 
@@ -89,13 +89,21 @@ def load_city(session: Session, city_info: dict[str, Any]) -> City:
     print(f"  Downloaded {len(edges)} street segments")
 
     # Project to local CRS for accurate length calculation
+    print(f"  Projecting to {projected_crs} for length calculation...")
     edges_projected = edges.to_crs(projected_crs)
 
     # 3. Bulk insert street segments
+    print(f"  Building segment objects...")
     segments: list[StreetSegment] = []
+    skipped = 0
+    total = len(edges)
     for idx, (_, row) in enumerate(edges.iterrows()):
+        if (idx + 1) % 50_000 == 0 or idx == 0:
+            print(f"    Processing edge {idx + 1}/{total} ({(idx + 1) * 100 // total}%)...")
+
         geom = row.geometry
         if geom.geom_type != "LineString":
+            skipped += 1
             continue
 
         # Get projected length
@@ -114,8 +122,12 @@ def load_city(session: Session, city_info: dict[str, Any]) -> City:
         )
         segments.append(segment)
 
+    if skipped:
+        print(f"  Skipped {skipped} non-LineString geometries")
+    print(f"  Inserting {len(segments)} segments into database...")
     session.add_all(segments)
     session.flush()
+    print(f"  Flush complete.")
 
     # 4. Update city cached counts
     city.total_street_segments = len(segments)
