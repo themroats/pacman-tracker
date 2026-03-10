@@ -120,6 +120,20 @@ class ActivityImporter:
                 # Detailed polyline fetch is deferred to Phase B to avoid rate limits
                 summary_polyline = act_data.get("map", {}).get("summary_polyline")
 
+                # Decode polyline into a WGS84 LineString geometry
+                gps_trace_wkb = None
+                if summary_polyline:
+                    try:
+                        import polyline as polyline_codec
+                        from geoalchemy2.shape import from_shape
+                        from shapely.geometry import LineString as ShapelyLineString
+                        coords = polyline_codec.decode(summary_polyline)
+                        if len(coords) >= 2:
+                            line = ShapelyLineString([(lng, lat) for lat, lng in coords])
+                            gps_trace_wkb = from_shape(line, srid=4326)
+                    except Exception:
+                        pass
+
                 activity = Activity(
                     user_id=user_id,
                     strava_activity_id=strava_id,
@@ -133,8 +147,9 @@ class ActivityImporter:
                     moving_time_seconds=act_data.get("moving_time", 0),
                     summary_polyline=summary_polyline,
                     detailed_polyline=None,
+                    gps_trace=gps_trace_wkb,
                     has_gps=bool(summary_polyline),
-                    import_status="pending",
+                    import_status="polyline_imported" if summary_polyline else "pending",
                 )
                 self.db.add(activity)
                 imported += 1
