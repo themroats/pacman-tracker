@@ -324,6 +324,6 @@ The two-phase import strategy (T030) is critical. Phase A (polyline fetch) gets 
 
 **Purpose**: Bugs and refactors identified during code review
 
-- [ ] T101 Fix sync error status rollback bug in `backend/app/api/sync.py` — when `import_phase_a` fails mid-sync, `session.rollback()` in `get_db()` undoes the `sync_status="error"` update. Use a separate transaction or background task for status updates so failure state is persisted.
-- [ ] T102 [P] DRY up neighborhood coverage calculation in `backend/app/api/cities.py` — `list_neighborhoods` and `neighborhood_boundary` duplicate the street-coverage counting logic. Extract to a shared helper (similar to `_neighborhood_coverage()` in `backend/app/api/coverage.py`).
-- [ ] T103 [P] Extract business logic from route suggestion endpoint in `backend/app/api/routes.py` — `suggest_route` is ~140 lines mixing HTTP concerns with DB queries, coverage lookups, OSRM orchestration, fallback logic, and persistence. Move to `backend/app/services/routing.py`.
+- [x] T101 Fix sync error status rollback bug in `backend/app/api/sync.py` — when `import_phase_a` fails mid-sync, `session.rollback()` in `get_db()` undoes the `sync_status="error"` update. Use a separate transaction or background task for status updates so failure state is persisted.
+- [x] T102 [P] DRY up neighborhood coverage calculation in `backend/app/api/cities.py` — `list_neighborhoods` and `neighborhood_boundary` duplicate the street-coverage counting logic. Extract to a shared helper (similar to `_neighborhood_coverage()` in `backend/app/api/coverage.py`).
+- [x] T103 [P] Extract business logic from route suggestion endpoint in `backend/app/api/routes.py` — `suggest_route` is ~140 lines mixing HTTP concerns with DB queries, coverage lookups, OSRM orchestration, fallback logic, and persistence. Move to `backend/app/services/routing.py`.
