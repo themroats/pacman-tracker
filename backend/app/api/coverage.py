@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, Query
 from geoalchemy2.shape import to_shape
-from sqlalchemy import func
+from sqlalchemy import func, and_, case, literal_column
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -34,57 +34,43 @@ router = APIRouter(prefix="/coverage", tags=["coverage"])
 from app.api.deps import get_current_user as _get_current_user
 
 
-def _coverage_stats_for_streets(
-    db: Session,
-    user_id: int,
-    street_ids: list[int],
-) -> dict[int, dict]:
-    """Return a mapping street_segment_id → {coverage_ratio, is_traveled, first_traveled_at}."""
-    if not street_ids:
-        return {}
-    rows = (
-        db.query(UserStreetCoverage)
-        .filter(
-            UserStreetCoverage.user_id == user_id,
-            UserStreetCoverage.street_segment_id.in_(street_ids),
-        )
-        .all()
-    )
-    return {
-        r.street_segment_id: {
-            "coverage_ratio": r.coverage_ratio,
-            "is_traveled": r.is_traveled,
-            "first_traveled_at": r.first_traveled_at.isoformat() if r.first_traveled_at else None,
-        }
-        for r in rows
-    }
-
-
 def _neighborhood_coverage(
     db: Session,
     user_id: int,
     neighborhood: Neighborhood,
 ) -> dict:
-    """Build a neighborhood-coverage summary dict."""
-    street_ids = [
-        s.id
-        for s in db.query(StreetSegment.id)
-        .filter_by(neighborhood_id=neighborhood.id)
-        .all()
-    ]
-    cov_map = _coverage_stats_for_streets(db, user_id, street_ids)
-    traveled = sum(1 for v in cov_map.values() if v["is_traveled"])
-    total = neighborhood.total_street_segments or len(street_ids)
-    pct = (traveled / total * 100) if total else 0.0
+    """Build a neighborhood-coverage summary dict using efficient SQL."""
+    # Single query: count total streets and traveled streets via LEFT JOIN
+    row = (
+        db.query(
+            func.count(StreetSegment.id).label("total"),
+            func.count(UserStreetCoverage.id).label("traveled"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (UserStreetCoverage.is_traveled == True, StreetSegment.length_meters),
+                        else_=literal_column("0"),
+                    )
+                ),
+                0,
+            ).label("traveled_length"),
+        )
+        .outerjoin(
+            UserStreetCoverage,
+            and_(
+                UserStreetCoverage.street_segment_id == StreetSegment.id,
+                UserStreetCoverage.user_id == user_id,
+                UserStreetCoverage.is_traveled == True,
+            ),
+        )
+        .filter(StreetSegment.neighborhood_id == neighborhood.id)
+        .one()
+    )
 
-    # Compute distance traveled
-    traveled_length = 0.0
-    for s in (
-        db.query(StreetSegment)
-        .filter(StreetSegment.id.in_([sid for sid, v in cov_map.items() if v["is_traveled"]]))
-        .all()
-    ):
-        traveled_length += s.length_meters
+    total = neighborhood.total_street_segments or row.total
+    traveled = row.traveled
+    pct = (traveled / total * 100) if total else 0.0
+    traveled_length = float(row.traveled_length)
 
     return {
         "id": neighborhood.id,
@@ -100,21 +86,44 @@ def _neighborhood_coverage(
 def _streets_geojson(
     db: Session,
     user_id: int,
-    streets: list[StreetSegment],
+    street_query,
     status_filter: str | None = None,
 ) -> dict:
-    """Build a GeoJSON FeatureCollection from streets + coverage data."""
-    street_ids = [s.id for s in streets]
-    cov_map = _coverage_stats_for_streets(db, user_id, street_ids)
+    """Build a GeoJSON FeatureCollection from a street query + coverage data.
+
+    Accepts a SQLAlchemy query (not a materialised list) so that the database
+    does the heavy lifting via a JOIN instead of a giant ``IN(...)`` clause.
+    """
+    # LEFT JOIN coverage onto the street query
+    rows = (
+        street_query
+        .outerjoin(
+            UserStreetCoverage,
+            and_(
+                UserStreetCoverage.street_segment_id == StreetSegment.id,
+                UserStreetCoverage.user_id == user_id,
+            ),
+        )
+        .add_columns(
+            UserStreetCoverage.coverage_ratio,
+            UserStreetCoverage.is_traveled,
+            UserStreetCoverage.first_traveled_at,
+        )
+        .all()
+    )
 
     features = []
-    for s in streets:
-        cov = cov_map.get(s.id, {"coverage_ratio": 0.0, "is_traveled": False, "first_traveled_at": None})
+    for row in rows:
+        # Unpack: first element is StreetSegment, rest are coverage columns
+        s = row[0]
+        cov_ratio = row[1] or 0.0
+        is_traveled = bool(row[2]) if row[2] is not None else False
+        first_traveled = row[3].isoformat() if row[3] else None
 
         # Apply status filter
-        if status_filter == "traveled" and not cov["is_traveled"]:
+        if status_filter == "traveled" and not is_traveled:
             continue
-        if status_filter == "untraveled" and cov["is_traveled"]:
+        if status_filter == "untraveled" and is_traveled:
             continue
 
         try:
@@ -134,9 +143,9 @@ def _streets_geojson(
                     "name": s.name,
                     "highway_type": s.highway_type,
                     "length_meters": s.length_meters,
-                    "is_traveled": cov["is_traveled"],
-                    "coverage_ratio": round(cov["coverage_ratio"], 2),
-                    "first_traveled_at": cov["first_traveled_at"],
+                    "is_traveled": is_traveled,
+                    "coverage_ratio": round(cov_ratio, 2),
+                    "first_traveled_at": first_traveled,
                 },
                 "geometry": geom_json,
             }
@@ -242,12 +251,11 @@ async def neighborhood_streets(
     if not n:
         raise AppError("NOT_FOUND", f"Neighborhood {neighborhood_id} not found", 404)
 
-    streets = (
+    street_query = (
         db.query(StreetSegment)
         .filter_by(neighborhood_id=neighborhood_id)
-        .all()
     )
-    return _streets_geojson(db, user.id, streets)
+    return _streets_geojson(db, user.id, street_query)
 
 
 @router.get("/city/{city_id}/streets")
@@ -267,6 +275,11 @@ async def city_streets(
     query = db.query(StreetSegment).filter_by(city_id=city_id)
     if neighborhood_id:
         query = query.filter_by(neighborhood_id=neighborhood_id)
+    elif not bbox:
+        # Without a neighborhood or bbox filter, returning 300k+ streets as
+        # GeoJSON would be too large.  Return an empty collection so the
+        # frontend can prompt the user to select a neighborhood first.
+        return {"type": "FeatureCollection", "features": []}
 
     # bbox filter: "minLng,minLat,maxLng,maxLat"
     if bbox:
@@ -289,5 +302,4 @@ async def city_streets(
         except (ValueError, IndexError):
             pass  # ignore malformed bbox
 
-    streets = query.all()
-    return _streets_geojson(db, user.id, streets, status_filter=status)
+    return _streets_geojson(db, user.id, query, status_filter=status)

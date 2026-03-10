@@ -51,6 +51,8 @@ def compute_coverage_ratio(
     street: LineString,
     gps_trace: LineString,
     buffer_meters: float = DEFAULT_BUFFER_METERS,
+    *,
+    gps_buffer=None,
 ) -> float:
     """Return the fraction of *street* covered by *gps_trace* (0.0 – 1.0).
 
@@ -58,19 +60,21 @@ def compute_coverage_ratio(
     1. Buffer the GPS trace by ``buffer_meters`` (converted to approximate degrees).
     2. Intersect the street geometry with the buffer.
     3. Ratio = length(intersection) / length(street).
+
+    Pass a pre-computed *gps_buffer* to avoid recomputing it for every street.
     """
-    if street.is_empty or gps_trace.is_empty:
+    if street.is_empty or (gps_buffer is None and gps_trace.is_empty):
         return 0.0
 
     street_len = street.length
     if street_len == 0:
         return 0.0
 
-    # Approximate latitude from the street's centroid
-    lat = street.centroid.y
-    buf_deg = _approx_buffer_degrees(buffer_meters, lat)
+    if gps_buffer is None:
+        lat = street.centroid.y
+        buf_deg = _approx_buffer_degrees(buffer_meters, lat)
+        gps_buffer = gps_trace.buffer(buf_deg)
 
-    gps_buffer = gps_trace.buffer(buf_deg)
     intersection = street.intersection(gps_buffer)
 
     ratio = intersection.length / street_len
@@ -98,6 +102,9 @@ def match_activity_to_streets(
     buffer_meters:
         Buffer distance in metres.
 
+    .. note::
+        The GPS trace is buffered **once** and reused for all streets.
+
     Returns
     -------
     List of dicts with keys: ``street_segment_id``, ``coverage_ratio``, ``is_traveled``.
@@ -105,9 +112,16 @@ def match_activity_to_streets(
     if not street_geometries:
         return []
 
+    # Pre-compute the buffer ONCE instead of per-street
+    lat = gps_trace.centroid.y
+    buf_deg = _approx_buffer_degrees(buffer_meters, lat)
+    gps_buffer = gps_trace.buffer(buf_deg)
+
     results: list[dict[str, Any]] = []
     for seg_id, street_geom, length_m in street_geometries:
-        ratio = compute_coverage_ratio(street_geom, gps_trace, buffer_meters)
+        ratio = compute_coverage_ratio(
+            street_geom, gps_trace, buffer_meters, gps_buffer=gps_buffer,
+        )
         if ratio > 0.0:
             results.append(
                 {
@@ -141,17 +155,47 @@ def run_coverage_matching(
     from app.models.coverage import UserStreetCoverage
     from app.models.street import StreetSegment
 
-    # Fetch candidate streets in the same city (or all if city unknown)
-    query = db.query(StreetSegment)
-    if city_id:
-        query = query.filter(StreetSegment.city_id == city_id)
+    # Spatial pre-filter using SpatiaLite's R-tree index.  ST_Intersects
+    # alone does a full-table scan; the R-tree narrows 303k streets to
+    # typically a few hundred candidates in milliseconds.
+    from sqlalchemy import text as sa_text
 
-    # Spatial pre-filter: streets whose bounding box intersects the gps trace bbox
-    # For SpatiaLite, we rely on the R-tree index implicitly; explicit bbox filter here:
     bounds = gps_trace.bounds  # (minx, miny, maxx, maxy)
     pad = _approx_buffer_degrees(DEFAULT_BUFFER_METERS * 2)
-    # We'll just fetch all streets in the city for now; spatial indexing will help in prod.
-    streets = query.all()
+    minx, miny = bounds[0] - pad, bounds[1] - pad
+    maxx, maxy = bounds[2] + pad, bounds[3] + pad
+
+    # Step 1: R-tree gives us a fast set of candidate ROWIDs.
+    # f_table_name and f_geometry_column must be passed as bind params
+    # (string literals get stripped by PowerShell / SQLAlchemy in some contexts).
+    rtree_sql = sa_text(
+        "SELECT ROWID FROM SpatialIndex "
+        "WHERE f_table_name = :tbl "
+        "AND f_geometry_column = :col "
+        "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
+    )
+    candidate_ids = [
+        row[0]
+        for row in db.execute(
+            rtree_sql,
+            {"tbl": "street_segments", "col": "geometry",
+             "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy},
+        ).fetchall()
+    ]
+
+    if not candidate_ids:
+        return 0.0
+
+    # Step 2: Fetch actual ORM objects for only those candidates.
+    # Chunk the IN(...) to stay within SQLite's 999-parameter limit.
+    _CHUNK = 900
+    streets: list = []
+    for i in range(0, len(candidate_ids), _CHUNK):
+        chunk = candidate_ids[i : i + _CHUNK]
+        q = db.query(StreetSegment).filter(StreetSegment.id.in_(chunk))
+        if city_id:
+            q = q.filter(StreetSegment.city_id == city_id)
+        streets.extend(q.all())
 
     # Convert DB geometries to Shapely
     street_geoms: list[tuple[int, LineString, float]] = []
@@ -171,13 +215,11 @@ def run_coverage_matching(
 
     # Compute overall ratio: sum of covered-street-length / total nearby street length
     total_length = sum(l for _, _, l in street_geoms)
-    covered_length = 0.0
-    for r in results:
-        # Find the matching street's length
-        for seg_id, _, length_m in street_geoms:
-            if seg_id == r["street_segment_id"]:
-                covered_length += r["coverage_ratio"] * length_m
-                break
+    length_by_id = {seg_id: length_m for seg_id, _, length_m in street_geoms}
+    covered_length = sum(
+        r["coverage_ratio"] * length_by_id.get(r["street_segment_id"], 0)
+        for r in results
+    )
     overall_ratio = covered_length / total_length if total_length > 0 else 0.0
 
     # Persist / update UserStreetCoverage records
