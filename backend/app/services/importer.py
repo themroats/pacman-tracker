@@ -20,8 +20,8 @@ from app.services.strava import RateLimitError, StravaOAuthService, TokenRevoked
 logger = logging.getLogger(__name__)
 
 # T076: Exponential backoff settings
-MAX_RETRIES = 3
-BASE_BACKOFF_SECONDS = 5
+MAX_RETRIES = 5
+BASE_BACKOFF_SECONDS = 15
 
 
 async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
@@ -40,7 +40,7 @@ async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
         except RateLimitError as e:
             if attempt == max_retries:
                 raise
-            wait = min(e.retry_after, BASE_BACKOFF_SECONDS * (2**attempt))
+            wait = max(e.retry_after, BASE_BACKOFF_SECONDS * (2**attempt))
             logger.warning(
                 "Rate limited (attempt %d/%d), waiting %.0fs...",
                 attempt + 1,
@@ -91,11 +91,13 @@ class ActivityImporter:
         # Paginate through activities
         page = 1
         while True:
-            activities = await self.strava.fetch_activity_list(
-                access_token=access_token,
-                page=page,
-                per_page=200,
-                after=after,
+            activities = await _retry_with_backoff(
+                lambda p=page: self.strava.fetch_activity_list(
+                    access_token=access_token,
+                    page=p,
+                    per_page=200,
+                    after=after,
+                )
             )
 
             if not activities:
@@ -114,16 +116,9 @@ class ActivityImporter:
                     skipped += 1
                     continue
 
-                # Fetch detailed polyline
-                try:
-                    detail = await self.strava.fetch_activity_detail(
-                        access_token, strava_id
-                    )
-                except Exception:
-                    detail = {}
-
+                # Use summary polyline from list response (no extra API call)
+                # Detailed polyline fetch is deferred to Phase B to avoid rate limits
                 summary_polyline = act_data.get("map", {}).get("summary_polyline")
-                detailed_polyline = detail.get("map", {}).get("polyline")
 
                 activity = Activity(
                     user_id=user_id,
@@ -137,13 +132,14 @@ class ActivityImporter:
                     duration_seconds=act_data.get("elapsed_time", 0),
                     moving_time_seconds=act_data.get("moving_time", 0),
                     summary_polyline=summary_polyline,
-                    detailed_polyline=detailed_polyline,
-                    has_gps=bool(summary_polyline or detailed_polyline),
-                    import_status="polyline_imported" if detailed_polyline else "pending",
+                    detailed_polyline=None,
+                    has_gps=bool(summary_polyline),
+                    import_status="pending",
                 )
                 self.db.add(activity)
                 imported += 1
 
+            logger.info("Page %d: imported %d activities so far", page, imported)
             page += 1
 
         if imported > 0:
