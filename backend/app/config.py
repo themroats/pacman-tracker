@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # --- OSRM ---
     osrm_url: str = "http://localhost:5000"
 
+    # --- Development ---
+    dev_auth_bypass: bool = False
+
     # --- CORS ---
     cors_origins: str = "http://localhost:5173"
 

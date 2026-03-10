@@ -8,6 +8,7 @@ the user whose encrypted access token matches.
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import get_db
 from app.main import AppError
 from app.models.user import User
@@ -26,7 +27,21 @@ def get_current_user(
     the user by decrypting each stored token and comparing.  For a small
     number of users (local dev) this is fine; a production app would use
     JWT or a session table.
+
+    When ``DEV_AUTH_BYPASS=1`` is set in the environment, the token check
+    is skipped and the first user in the database is returned.  This is
+    only intended for local development.
     """
+    settings = get_settings()
+
+    # --- Dev bypass: skip token validation, return first user -----------
+    if settings.dev_auth_bypass:
+        user = db.query(User).first()
+        if user:
+            return user
+        raise AppError("UNAUTHORIZED", "DEV_AUTH_BYPASS is on but no users exist", 401)
+
+    # --- Normal token-based auth ----------------------------------------
     if not authorization:
         raise AppError("UNAUTHORIZED", "Missing authorization header", 401)
 
