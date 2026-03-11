@@ -51,6 +51,12 @@ data/
 # Cache
 backend/cache/
 
+# API test files (contain tokens)
+*.http
+
+# Personal notes
+issues.txt
+
 # OSRM
 osrm-data/
 
