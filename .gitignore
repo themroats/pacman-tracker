@@ -48,6 +48,9 @@ htmlcov/
 *.sqlite3
 data/
 
+# Cache
+backend/cache/
+
 # OSRM
 osrm-data/
 
