@@ -153,6 +153,7 @@ export interface RouteSegment {
   street_name: string;
   is_untraveled: boolean;
   length_meters: number;
+  geometry?: GeoJSONLineString;
 }
 
 export interface RouteHistoryItem {

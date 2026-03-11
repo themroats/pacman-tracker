@@ -131,7 +131,7 @@ export default function RoutePage() {
           preferCanvas
         >
           <TileLayer url={TILE_URL} attribution="&copy; CartoDB" />
-          {route && <RouteLayer geometry={route.geometry} />}
+          {route && <RouteLayer geometry={route.geometry} segments={segments} />}
         </MapContainer>
       </div>
     </div>

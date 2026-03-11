@@ -128,3 +128,126 @@ class TestFullCoverageFallback:
         ]
         waypoints = engine.select_waypoints(streets, max_waypoints=10)
         assert len(waypoints) == 0
+
+
+class TestPersistSegments:
+    """Tests for _persist_segments route-intersection filtering and geometry."""
+
+    @pytest.fixture()
+    def planner(self):
+        """Create a RoutePlannerService with a mocked DB session."""
+        from app.services.routing import RoutePlannerService
+
+        mock_db = MagicMock()
+        return RoutePlannerService(db=mock_db)
+
+    def _make_segment_model(self):
+        """Return a mock SegmentModel class that records instantiations."""
+        return MagicMock
+
+    def test_only_includes_segments_intersecting_route(self, planner):
+        """Streets far from the route should be excluded from results."""
+        # Route goes along longitude -122.33
+        route_geom = LineString([(-122.33, 47.60), (-122.33, 47.62)])
+
+        streets = [
+            {
+                "id": 1,
+                "geometry": LineString([(-122.3301, 47.605), (-122.3299, 47.605)]),
+                "length_meters": 50.0,
+                "is_traveled": False,
+                "name": "Near Street",
+            },
+            {
+                "id": 2,
+                "geometry": LineString([(-122.35, 47.605), (-122.35, 47.606)]),
+                "length_meters": 100.0,
+                "is_traveled": False,
+                "name": "Far Street",
+            },
+        ]
+
+        suggestion = MagicMock(id=1)
+        result = planner._persist_segments(
+            suggestion, streets, self._make_segment_model(),
+            route_geom=route_geom,
+        )
+
+        names = [s["street_name"] for s in result]
+        assert "Near Street" in names
+        assert "Far Street" not in names
+
+    def test_excludes_traveled_streets(self, planner):
+        """Traveled streets should never appear in segments."""
+        route_geom = LineString([(-122.33, 47.60), (-122.33, 47.62)])
+
+        streets = [
+            {
+                "id": 1,
+                "geometry": LineString([(-122.3301, 47.605), (-122.3299, 47.605)]),
+                "length_meters": 50.0,
+                "is_traveled": True,
+                "name": "Traveled Street",
+            },
+        ]
+
+        suggestion = MagicMock(id=1)
+        result = planner._persist_segments(
+            suggestion, streets, self._make_segment_model(),
+            route_geom=route_geom,
+        )
+
+        assert len(result) == 0
+
+    def test_segments_include_geometry(self, planner):
+        """Each returned segment should include a GeoJSON LineString geometry."""
+        route_geom = LineString([(-122.33, 47.60), (-122.33, 47.62)])
+
+        streets = [
+            {
+                "id": 1,
+                "geometry": LineString([(-122.3301, 47.605), (-122.3299, 47.605)]),
+                "length_meters": 50.0,
+                "is_traveled": False,
+                "name": "Test Street",
+            },
+        ]
+
+        suggestion = MagicMock(id=1)
+        result = planner._persist_segments(
+            suggestion, streets, self._make_segment_model(),
+            route_geom=route_geom,
+        )
+
+        assert len(result) == 1
+        seg = result[0]
+        assert seg["geometry"]["type"] == "LineString"
+        assert len(seg["geometry"]["coordinates"]) == 2
+        assert seg["is_untraveled"] is True
+        assert seg["street_name"] == "Test Street"
+
+    def test_no_route_geom_includes_all_untraveled(self, planner):
+        """Without a route geometry, all untraveled streets are included."""
+        streets = [
+            {
+                "id": 1,
+                "geometry": LineString([(-122.33, 47.605), (-122.33, 47.606)]),
+                "length_meters": 50.0,
+                "is_traveled": False,
+                "name": "Street A",
+            },
+            {
+                "id": 2,
+                "geometry": LineString([(-122.35, 47.605), (-122.35, 47.606)]),
+                "length_meters": 100.0,
+                "is_traveled": False,
+                "name": "Street B",
+            },
+        ]
+
+        suggestion = MagicMock(id=1)
+        result = planner._persist_segments(
+            suggestion, streets, self._make_segment_model(),
+        )
+
+        assert len(result) == 2

@@ -416,6 +416,7 @@ class RoutePlannerService:
         # 7. Build & persist segment list ---------------------------------
         segments_info = self._persist_segments(
             suggestion, streets_for_engine, RouteSuggestionSegment,
+            route_geom=route_geom,
         )
 
         return {
@@ -480,26 +481,44 @@ class RoutePlannerService:
         suggestion: Any,
         streets_for_engine: list[dict],
         SegmentModel: type,
+        *,
+        route_geom: LineString | None = None,
     ) -> list[dict]:
-        """Create ``RouteSuggestionSegment`` rows and return segment info."""
+        """Create ``RouteSuggestionSegment`` rows and return segment info.
+
+        Only includes untraveled streets that actually intersect the route
+        geometry (buffered by ~30 m) so the map highlights are accurate.
+        """
+        # Buffer route by ~30 m (~0.0003 degrees) to catch nearby streets
+        route_buffer = route_geom.buffer(0.0003) if route_geom else None
         untraveled_ids = {s["id"] for s in streets_for_engine if not s["is_traveled"]}
         segments_info: list[dict] = []
 
         for i, s in enumerate(streets_for_engine):
-            if s["id"] in untraveled_ids:
-                seg = SegmentModel(
-                    route_suggestion_id=suggestion.id,
-                    street_segment_id=s["id"],
-                    sequence_order=i + 1,
-                    is_untraveled=not s["is_traveled"],
-                )
-                self.db.add(seg)
-                segments_info.append(
-                    {
-                        "street_name": s.get("name") or "Unnamed",
-                        "is_untraveled": not s["is_traveled"],
-                        "length_meters": s["length_meters"],
-                    }
-                )
+            if s["id"] not in untraveled_ids:
+                continue
+            # Only include streets that intersect the route
+            if route_buffer and not s["geometry"].intersects(route_buffer):
+                continue
+            seg = SegmentModel(
+                route_suggestion_id=suggestion.id,
+                street_segment_id=s["id"],
+                sequence_order=i + 1,
+                is_untraveled=not s["is_traveled"],
+            )
+            self.db.add(seg)
+            geom = s["geometry"]
+            coords = [[c[0], c[1]] for c in geom.coords]
+            segments_info.append(
+                {
+                    "street_name": s.get("name") or "Unnamed",
+                    "is_untraveled": not s["is_traveled"],
+                    "length_meters": s["length_meters"],
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": coords,
+                    },
+                }
+            )
         self.db.flush()
         return segments_info

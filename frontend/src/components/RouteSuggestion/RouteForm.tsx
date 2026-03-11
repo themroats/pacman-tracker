@@ -33,9 +33,16 @@ export default function RouteForm({
 }: RouteFormProps) {
   const [distanceKm, setDistanceKm] = useState("5");
   const [cityId, setCityId] = useState<number | null>(cities[0]?.id ?? null);
+
+  // Load neighborhoods for the initial city on mount
+  React.useEffect(() => {
+    if (cityId && onCityChange) {
+      onCityChange(cityId);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [neighborhoodId, setNeighborhoodId] = useState<number | null>(null);
-  const [lng, setLng] = useState(startPoint?.lng?.toString() ?? "-122.3321");
-  const [lat, setLat] = useState(startPoint?.lat?.toString() ?? "47.6062");
+  const [lng, setLng] = useState(startPoint?.lng?.toString() ?? "-122.32225012178574");
+  const [lat, setLat] = useState(startPoint?.lat?.toString() ?? "47.623765870845304");
 
   // Update from map click
   React.useEffect(() => {
