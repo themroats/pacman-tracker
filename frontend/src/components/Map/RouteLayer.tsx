@@ -17,6 +17,8 @@ interface RouteLayerProps {
     coordinates: [number, number][];
   } | null;
   segments?: RouteSegment[];
+  showRoute?: boolean;
+  showUntraveled?: boolean;
 }
 
 const ROUTE_STYLE: PathOptions = {
@@ -32,7 +34,7 @@ const UNTRAVELED_STYLE: PathOptions = {
   opacity: 0.9,
 };
 
-export default function RouteLayer({ geometry, segments }: RouteLayerProps) {
+export default function RouteLayer({ geometry, segments, showRoute = true, showUntraveled = true }: RouteLayerProps) {
   // Build a FeatureCollection from untraveled segments that have geometry
   const untraveledGeoJSON = useMemo(() => {
     if (!segments) return null;
@@ -62,12 +64,14 @@ export default function RouteLayer({ geometry, segments }: RouteLayerProps) {
 
   return (
     <>
-      <GeoJSON
-        key={`route-${layerKey}`}
-        data={routeGeoJSON as unknown as GeoJSON.GeoJsonObject}
-        style={() => ROUTE_STYLE}
-      />
-      {untraveledGeoJSON && (
+      {showRoute && (
+        <GeoJSON
+          key={`route-${layerKey}`}
+          data={routeGeoJSON as unknown as GeoJSON.GeoJsonObject}
+          style={() => ROUTE_STYLE}
+        />
+      )}
+      {showUntraveled && untraveledGeoJSON && (
         <GeoJSON
           key={`untraveled-${layerKey}`}
           data={untraveledGeoJSON as unknown as GeoJSON.GeoJsonObject}

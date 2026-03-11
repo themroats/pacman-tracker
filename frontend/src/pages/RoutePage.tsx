@@ -9,6 +9,7 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";
 import RouteLayer from "@/components/Map/RouteLayer";
+import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import { routesApi, citiesApi } from "@/api/client";
 import { useAppStore } from "@/store";
 import type {
@@ -41,6 +42,15 @@ export default function RoutePage() {
   const [segments, setSegments] = useState<RouteSegment[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [layerVis, setLayerVis] = useState({ route: true, untraveled: true });
+  const toggleLayer = useCallback((key: string) => {
+    setLayerVis((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+  }, []);
+  const routeLayers: LayerToggle[] = [
+    { key: "route", label: "Route", color: "#6366f1", enabled: layerVis.route },
+    { key: "untraveled", label: "Untraveled streets", color: "#22c55e", enabled: layerVis.untraveled },
+  ];
 
   // Load cities on mount
   useEffect(() => {
@@ -89,7 +99,7 @@ export default function RoutePage() {
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100%", width: "100%", position: "absolute", inset: 0 }}>
       {/* Sidebar */}
       <div
         style={{
@@ -123,7 +133,7 @@ export default function RoutePage() {
       </div>
 
       {/* Map */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, position: "relative" }}>
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={DEFAULT_ZOOM}
@@ -131,8 +141,16 @@ export default function RoutePage() {
           preferCanvas
         >
           <TileLayer url={TILE_URL} attribution="&copy; CartoDB" />
-          {route && <RouteLayer geometry={route.geometry} segments={segments} />}
+          {route && (
+            <RouteLayer
+              geometry={route.geometry}
+              segments={segments}
+              showRoute={layerVis.route}
+              showUntraveled={layerVis.untraveled}
+            />
+          )}
         </MapContainer>
+        <LayerToggles layers={routeLayers} onToggle={toggleLayer} />
       </div>
     </div>
   );
