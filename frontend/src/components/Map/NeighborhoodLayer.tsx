@@ -5,8 +5,8 @@
  * Supports click-to-select behaviour.
  */
 
-import React, { useMemo } from "react";
-import { GeoJSON, useMap } from "react-leaflet";
+import { useMemo } from "react";
+import { GeoJSON } from "react-leaflet";
 import type { PathOptions } from "leaflet";
 
 export interface NeighborhoodFeature {

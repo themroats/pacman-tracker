@@ -4,7 +4,7 @@
  * Displays city-wide coverage percentage and per-neighborhood breakdown table.
  */
 
-import React from "react";
+
 import type { NeighborhoodCoverage } from "@/types/api";
 
 interface CityData {

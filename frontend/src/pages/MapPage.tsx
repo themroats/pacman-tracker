@@ -11,7 +11,7 @@ import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import SyncStatus from "@/components/SyncStatus";
 import { activitiesApi } from "@/api/client";
 import { useAppStore } from "@/store";
-import type { ActivityDetail, GeoJSONFeatureCollection } from "@/types/api";
+import type { ActivityDetail } from "@/types/api";
 
 export default function MapPage() {
   const filters = useAppStore((s) => s.filters);
@@ -57,8 +57,11 @@ export default function MapPage() {
         setSelectedActivity(detail);
         // Try to extract a position from the GPS trace
         if (detail.gps_trace && detail.gps_trace.coordinates?.length > 0) {
-          const [lng, lat] = detail.gps_trace.coordinates[0];
-          setPopupPosition([lat, lng]);
+          const coord = detail.gps_trace.coordinates[0];
+          if (coord) {
+            const [lng, lat] = coord;
+            setPopupPosition([lat, lng]);
+          }
         }
       } catch {
         // Ignore click errors

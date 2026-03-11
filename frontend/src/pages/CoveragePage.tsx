@@ -7,7 +7,7 @@
  * - Coverage summary panel
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer } from "react-leaflet";
 import StreetCoverageLayer from "@/components/Map/StreetCoverageLayer";
@@ -23,7 +23,6 @@ import { citiesApi, coverageApi, activitiesApi } from "@/api/client";
 import type {
   CityCoverageResponse,
   GeoJSONFeatureCollection,
-  NeighborhoodListItem,
 } from "@/types/api";
 
 export default function CoveragePage() {

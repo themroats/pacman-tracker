@@ -6,7 +6,7 @@
  * Untraveled street segments are overlaid in green to highlight new coverage.
  */
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { GeoJSON } from "react-leaflet";
 import type { PathOptions } from "leaflet";
 import type { RouteSegment } from "@/types/api";

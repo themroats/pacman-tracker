@@ -4,7 +4,7 @@
  * Sidebar with RouteForm + RouteDetail, main map with RouteLayer.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";

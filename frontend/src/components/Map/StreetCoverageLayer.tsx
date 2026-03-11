@@ -6,8 +6,8 @@
  * - Red (#ef4444) = untraveled / missing
  */
 
-import React, { useMemo } from "react";
-import { GeoJSON, useMap } from "react-leaflet";
+import { useMemo } from "react";
+import { GeoJSON } from "react-leaflet";
 import type { GeoJSONFeatureCollection } from "@/types/api";
 import type { PathOptions } from "leaflet";
 
@@ -31,8 +31,6 @@ function streetStyle(feature: GeoJSON.Feature | undefined): PathOptions {
 }
 
 export default function StreetCoverageLayer({ data, filter }: StreetCoverageLayerProps) {
-  const map = useMap();
-
   const filtered = useMemo(() => {
     if (!data) return null;
     if (!filter) return data;
