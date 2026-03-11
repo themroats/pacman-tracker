@@ -13,6 +13,7 @@ import type { PathOptions } from "leaflet";
 
 interface StreetCoverageLayerProps {
   data: GeoJSONFeatureCollection | null;
+  filter?: "traveled" | "untraveled";
 }
 
 const COLORS = {
@@ -29,20 +30,27 @@ function streetStyle(feature: GeoJSON.Feature | undefined): PathOptions {
   };
 }
 
-export default function StreetCoverageLayer({ data }: StreetCoverageLayerProps) {
+export default function StreetCoverageLayer({ data, filter }: StreetCoverageLayerProps) {
   const map = useMap();
 
-  const key = useMemo(() => {
-    // Force re-render when data changes
-    return data ? JSON.stringify(data.features.length) : "empty";
-  }, [data]);
+  const filtered = useMemo(() => {
+    if (!data) return null;
+    if (!filter) return data;
+    const wanted = filter === "traveled";
+    const features = data.features.filter((f) => (f.properties?.is_traveled ?? false) === wanted);
+    return { ...data, features };
+  }, [data, filter]);
 
-  if (!data || data.features.length === 0) return null;
+  const key = useMemo(() => {
+    return filtered ? `${filtered.features.length}-${filter ?? "all"}` : "empty";
+  }, [filtered, filter]);
+
+  if (!filtered || filtered.features.length === 0) return null;
 
   return (
     <GeoJSON
       key={key}
-      data={data as unknown as GeoJSON.GeoJsonObject}
+      data={filtered as unknown as GeoJSON.GeoJsonObject}
       style={streetStyle}
       onEachFeature={(feature, layer) => {
         const p = feature.properties;

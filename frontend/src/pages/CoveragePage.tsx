@@ -15,6 +15,7 @@ import NeighborhoodLayer, {
   type NeighborhoodFeature,
 } from "@/components/Map/NeighborhoodLayer";
 import ActivityLayer from "@/components/Map/ActivityLayer";
+import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
 import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
 import { useAppStore } from "@/store";
@@ -45,6 +46,17 @@ export default function CoveragePage() {
   const [neighborhoodFeatures, setNeighborhoodFeatures] = useState<NeighborhoodFeature[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [layerVis, setLayerVis] = useState({ activities: true, traveled: true, untraveled: true, neighborhoods: true });
+  const toggleLayer = useCallback((key: string) => {
+    setLayerVis((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+  }, []);
+  const coverageLayers: LayerToggle[] = [
+    { key: "activities", label: "Activities", color: "#3b82f6", enabled: layerVis.activities },
+    { key: "traveled", label: "Covered streets", color: "#22c55e", enabled: layerVis.traveled },
+    { key: "untraveled", label: "Missing streets", color: "#ef4444", enabled: layerVis.untraveled },
+    { key: "neighborhoods", label: "Neighborhoods", color: "#9ca3af", enabled: layerVis.neighborhoods },
+  ];
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) navigate("/");
@@ -72,26 +84,39 @@ export default function CoveragePage() {
     if (!selectedCityId) {
       setCoverageData(null);
       setStreetsGeoJSON(null);
-      setActivitiesGeoJSON(null);
       setNeighborhoodFeatures([]);
       return;
     }
     setLoading(true);
-    Promise.all([
-      coverageApi.city(selectedCityId),
-      coverageApi.cityStreets(selectedCityId, {
-        neighborhood_id: selectedNeighborhoodId ?? undefined,
-      }),
-      activitiesApi.getAllGeoJSON({ city_id: selectedCityId }),
-    ])
-      .then(([cov, streets, activities]) => {
-        setCoverageData(cov);
-        setStreetsGeoJSON(streets);
-        setActivitiesGeoJSON(activities);
-      })
+    coverageApi.city(selectedCityId)
+      .then(setCoverageData)
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [selectedCityId]);
+
+  // Load streets when city or neighborhood changes
+  useEffect(() => {
+    if (!selectedCityId) {
+      setStreetsGeoJSON(null);
+      return;
+    }
+    coverageApi.cityStreets(selectedCityId, {
+      neighborhood_id: selectedNeighborhoodId ?? undefined,
+    })
+      .then(setStreetsGeoJSON)
+      .catch(() => {});
   }, [selectedCityId, selectedNeighborhoodId]);
+
+  // Load activities separately (only depends on city)
+  useEffect(() => {
+    if (!selectedCityId) {
+      setActivitiesGeoJSON(null);
+      return;
+    }
+    activitiesApi.getAllGeoJSON({ city_id: selectedCityId })
+      .then(setActivitiesGeoJSON)
+      .catch(() => {});
+  }, [selectedCityId]);
 
   // Load neighborhood boundaries
   useEffect(() => {
@@ -124,7 +149,7 @@ export default function CoveragePage() {
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", width: "100%" }}>
+    <div style={{ display: "flex", height: "100%", width: "100%", position: "absolute", inset: 0 }}>
       {/* Sidebar */}
       <div
         style={{
@@ -183,7 +208,7 @@ export default function CoveragePage() {
       </div>
 
       {/* Map */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, position: "relative" }}>
         <MapContainer
           center={[47.6062, -122.3321]}
           zoom={13}
@@ -194,14 +219,18 @@ export default function CoveragePage() {
             attribution='&copy; <a href="https://carto.com">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
-          <StreetCoverageLayer data={streetsGeoJSON} />
-          {activitiesGeoJSON && <ActivityLayer data={activitiesGeoJSON} color="#3b82f6" />}
-          <NeighborhoodLayer
-            features={neighborhoodFeatures}
-            selectedId={selectedNeighborhoodId}
-            onSelect={handleNeighborhoodSelect}
-          />
+          {layerVis.traveled && <StreetCoverageLayer data={streetsGeoJSON} filter="traveled" />}
+          {layerVis.untraveled && <StreetCoverageLayer data={streetsGeoJSON} filter="untraveled" />}
+          {layerVis.activities && activitiesGeoJSON && <ActivityLayer data={activitiesGeoJSON} color="#3b82f6" autoFit={false} />}
+          {layerVis.neighborhoods && (
+            <NeighborhoodLayer
+              features={neighborhoodFeatures}
+              selectedId={selectedNeighborhoodId}
+              onSelect={handleNeighborhoodSelect}
+            />
+          )}
         </MapContainer>
+        <LayerToggles layers={coverageLayers} onToggle={toggleLayer} />
       </div>
     </div>
   );

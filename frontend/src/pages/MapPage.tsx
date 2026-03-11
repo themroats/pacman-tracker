@@ -7,6 +7,7 @@ import MapView from "@/components/Map/MapView";
 import ActivityLayer from "@/components/Map/ActivityLayer";
 import ActivityPopup from "@/components/Map/ActivityPopup";
 import FilterPanel from "@/components/ActivityList/FilterPanel";
+import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import SyncStatus from "@/components/SyncStatus";
 import { activitiesApi } from "@/api/client";
 import { useAppStore } from "@/store";
@@ -23,6 +24,14 @@ export default function MapPage() {
 
   const [selectedActivity, setSelectedActivity] = useState<ActivityDetail | null>(null);
   const [popupPosition, setPopupPosition] = useState<[number, number] | null>(null);
+
+  const [showActivities, setShowActivities] = useState(true);
+  const mapLayers: LayerToggle[] = [
+    { key: "activities", label: "Activities", color: "#ff4444", enabled: showActivities },
+  ];
+  const toggleMapLayer = useCallback((key: string) => {
+    if (key === "activities") setShowActivities((v) => !v);
+  }, []);
 
   // Fetch activities GeoJSON
   useEffect(() => {
@@ -72,7 +81,9 @@ export default function MapPage() {
 
       {/* Map */}
       <MapView>
-        <ActivityLayer data={activitiesGeoJSON} onFeatureClick={handleFeatureClick} />
+        {showActivities && (
+          <ActivityLayer data={activitiesGeoJSON} onFeatureClick={handleFeatureClick} />
+        )}
         <ActivityPopup
           activity={selectedActivity}
           position={popupPosition}
@@ -82,6 +93,7 @@ export default function MapPage() {
           }}
         />
       </MapView>
+      <LayerToggles layers={mapLayers} onToggle={toggleMapLayer} />
     </div>
   );
 }

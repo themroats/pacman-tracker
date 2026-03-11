@@ -20,9 +20,11 @@ interface ActivityLayerProps {
   onFeatureClick?: (activityId: number) => void;
   /** Override color for all traces (ignores sport-type colors). */
   color?: string;
+  /** Auto-fit map to data bounds when data changes. Default true. */
+  autoFit?: boolean;
 }
 
-export default function ActivityLayer({ data, onFeatureClick, color }: ActivityLayerProps) {
+export default function ActivityLayer({ data, onFeatureClick, color, autoFit = true }: ActivityLayerProps) {
   const map = useMap();
 
   const style = useCallback((feature: any): PathOptions => {
@@ -48,6 +50,7 @@ export default function ActivityLayer({ data, onFeatureClick, color }: ActivityL
 
   // Fit bounds when data changes
   useEffect(() => {
+    if (!autoFit) return;
     if (data && data.features.length > 0) {
       try {
         const L = (window as any).L;
@@ -62,7 +65,7 @@ export default function ActivityLayer({ data, onFeatureClick, color }: ActivityL
         // Bounds calculation failed — ignore
       }
     }
-  }, [data, map]);
+  }, [data, map, autoFit]);
 
   if (!data || data.features.length === 0) {
     return null;

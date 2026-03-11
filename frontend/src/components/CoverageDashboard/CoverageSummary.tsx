@@ -48,7 +48,7 @@ export default function CoverageSummary({
   );
 
   return (
-    <div style={{ padding: "1rem", maxHeight: "100%", overflow: "auto" }}>
+    <div style={{ padding: "1rem" }}>
       {/* City header */}
       <div style={{ marginBottom: "1rem" }}>
         <h2 style={{ margin: 0, fontSize: "1.25rem" }}>{city.name}</h2>
