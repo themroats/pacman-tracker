@@ -45,6 +45,12 @@ Dockerfile*
 .dockerignore
 docker-compose.yml
 
+# Data / caches
+data/
+cache/
+*.db
+.ruff_cache/
+
 # OS
 .DS_Store
 Thumbs.db
