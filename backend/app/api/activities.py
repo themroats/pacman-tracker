@@ -139,6 +139,7 @@ async def activities_geojson(
     sport_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
+    city_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     """Get all user activities as a GeoJSON FeatureCollection."""
@@ -152,6 +153,8 @@ async def activities_geojson(
         query = query.filter(Activity.start_date >= datetime.datetime.fromisoformat(start_date))
     if end_date:
         query = query.filter(Activity.start_date <= datetime.datetime.fromisoformat(end_date))
+    if city_id is not None:
+        query = query.filter(Activity.city_id == city_id)
 
     activities = query.order_by(Activity.start_date.desc()).all()
 

@@ -18,19 +18,24 @@ const SPORT_COLORS: Record<string, string> = {
 interface ActivityLayerProps {
   data: GeoJSONFeatureCollection | null;
   onFeatureClick?: (activityId: number) => void;
+  /** Override color for all traces (ignores sport-type colors). */
+  color?: string;
 }
 
-export default function ActivityLayer({ data, onFeatureClick }: ActivityLayerProps) {
+export default function ActivityLayer({ data, onFeatureClick, color }: ActivityLayerProps) {
   const map = useMap();
 
   const style = useCallback((feature: any): PathOptions => {
+    if (color) {
+      return { color, weight: 3, opacity: 0.7 };
+    }
     const sportType = feature?.properties?.sport_type || "default";
     return {
       color: SPORT_COLORS[sportType] || SPORT_COLORS.default,
       weight: 3,
       opacity: 0.8,
     };
-  }, []);
+  }, [color]);
 
   const onEachFeature = useCallback(
     (feature: any, layer: any) => {

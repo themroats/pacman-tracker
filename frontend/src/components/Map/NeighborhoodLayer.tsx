@@ -34,10 +34,11 @@ function neighborhoodStyle(
 ): PathOptions {
   const isSelected = feature?.properties?.id === selectedId;
   return {
-    color: isSelected ? "#3b82f6" : "#6366f1",
-    weight: isSelected ? 3 : 1.5,
-    fillColor: isSelected ? "#3b82f680" : "#6366f130",
-    fillOpacity: isSelected ? 0.25 : 0.1,
+    color: isSelected ? "#d97706" : "#9ca3af",
+    weight: isSelected ? 3 : 1,
+    fillColor: isSelected ? "#d9770640" : "transparent",
+    fillOpacity: isSelected ? 0.15 : 0,
+    dashArray: isSelected ? undefined : "4 4",
   };
 }
 

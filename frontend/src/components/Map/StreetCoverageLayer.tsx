@@ -3,7 +3,7 @@
  *
  * Renders street segments as colored polylines on the Leaflet map.
  * - Green (#22c55e) = traveled
- * - Grey (#9ca3af) = untraveled
+ * - Red (#ef4444) = untraveled / missing
  */
 
 import React, { useMemo } from "react";
@@ -17,7 +17,7 @@ interface StreetCoverageLayerProps {
 
 const COLORS = {
   traveled: "#22c55e",
-  untraveled: "#9ca3af",
+  untraveled: "#ef4444",
 };
 
 function streetStyle(feature: GeoJSON.Feature | undefined): PathOptions {

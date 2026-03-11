@@ -14,10 +14,11 @@ import StreetCoverageLayer from "@/components/Map/StreetCoverageLayer";
 import NeighborhoodLayer, {
   type NeighborhoodFeature,
 } from "@/components/Map/NeighborhoodLayer";
+import ActivityLayer from "@/components/Map/ActivityLayer";
 import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
 import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
 import { useAppStore } from "@/store";
-import { citiesApi, coverageApi } from "@/api/client";
+import { citiesApi, coverageApi, activitiesApi } from "@/api/client";
 import type {
   CityCoverageResponse,
   GeoJSONFeatureCollection,
@@ -40,6 +41,7 @@ export default function CoveragePage() {
 
   const [coverageData, setCoverageData] = useState<CityCoverageResponse | null>(null);
   const [streetsGeoJSON, setStreetsGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
+  const [activitiesGeoJSON, setActivitiesGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
   const [neighborhoodFeatures, setNeighborhoodFeatures] = useState<NeighborhoodFeature[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +72,7 @@ export default function CoveragePage() {
     if (!selectedCityId) {
       setCoverageData(null);
       setStreetsGeoJSON(null);
+      setActivitiesGeoJSON(null);
       setNeighborhoodFeatures([]);
       return;
     }
@@ -79,10 +82,12 @@ export default function CoveragePage() {
       coverageApi.cityStreets(selectedCityId, {
         neighborhood_id: selectedNeighborhoodId ?? undefined,
       }),
+      activitiesApi.getAllGeoJSON({ city_id: selectedCityId }),
     ])
-      .then(([cov, streets]) => {
+      .then(([cov, streets, activities]) => {
         setCoverageData(cov);
         setStreetsGeoJSON(streets);
+        setActivitiesGeoJSON(activities);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -190,6 +195,7 @@ export default function CoveragePage() {
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
           <StreetCoverageLayer data={streetsGeoJSON} />
+          {activitiesGeoJSON && <ActivityLayer data={activitiesGeoJSON} color="#3b82f6" />}
           <NeighborhoodLayer
             features={neighborhoodFeatures}
             selectedId={selectedNeighborhoodId}
