@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # --- CORS ---
     cors_origins: str = "http://localhost:5173"
 
+    # --- City bootstrap ---
+    auto_load_cities_on_empty_db: bool = True
+    auto_load_city_name: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse comma-separated CORS origins into a list."""

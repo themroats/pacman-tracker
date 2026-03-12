@@ -4,6 +4,7 @@ Database engine, session management, and SpatiaLite extension loading.
 
 import logging
 from collections.abc import Generator
+from pathlib import Path
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -37,6 +38,23 @@ def _load_spatialite(dbapi_conn, connection_record):
     dbapi_conn.enable_load_extension(False)
 
 
+def _ensure_sqlite_parent_dir(url: str) -> None:
+    """Create the parent directory for a file-based SQLite database if needed."""
+    if not url.startswith("sqlite:///") or url == "sqlite:///:memory:":
+        return
+
+    db_path = url.replace("sqlite:///", "", 1)
+    if not db_path:
+        return
+
+    # SQLAlchemy uses four slashes for absolute paths: sqlite:////home/data/app.db
+    if url.startswith("sqlite:////") and not db_path.startswith("/"):
+        db_path = f"/{db_path}"
+
+    parent = Path(db_path).expanduser().resolve().parent
+    parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_db_engine(database_url: str | None = None):
     """
     Create a SQLAlchemy engine.
@@ -49,6 +67,7 @@ def create_db_engine(database_url: str | None = None):
     connect_args = {}
     if url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
+        _ensure_sqlite_parent_dir(url)
 
     engine = create_engine(url, connect_args=connect_args, echo=False)
 

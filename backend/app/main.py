@@ -58,10 +58,14 @@ def error_response(code: str, message: str, status_code: int, details: dict | No
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup / shutdown hooks."""
-    # Startup: ensure database engine is initialised
-    from app.database import get_engine
+    # Startup: ensure database engine and schema are initialised.
+    from app import models  # noqa: F401
+    from app.database import Base, get_engine
+    from app.services.city_bootstrap import ensure_city_bootstrap_started
 
-    get_engine()
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    ensure_city_bootstrap_started()
     yield
     # Shutdown: clean up
     from app.database import reset_engine
