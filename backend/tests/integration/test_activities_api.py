@@ -12,13 +12,19 @@ from unittest.mock import MagicMock, patch
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 
 
 def _make_test_session():
     """Create an in-memory SQLite session with tables for integration tests."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
     _spatialite_loaded = False
 

@@ -122,7 +122,8 @@ class TestRateLimitHandling:
     """T084: Test rate limit behaviour during import."""
 
     @pytest.mark.asyncio
-    async def test_rate_limit_pauses_import(self):
+    @patch("app.services.importer.asyncio.sleep", new_callable=AsyncMock)
+    async def test_rate_limit_pauses_import(self, mock_sleep):
         """When Strava returns 429, importer should pause and retry."""
         from app.services.importer import ActivityImporter, RateLimitError
 
@@ -138,3 +139,4 @@ class TestRateLimitHandling:
             await importer.import_phase_a(user_id=1, access_token="test_token")
 
         assert exc_info.value.retry_after == 60
+        assert mock_sleep.await_count == 5

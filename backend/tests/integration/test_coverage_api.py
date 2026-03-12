@@ -1,11 +1,11 @@
 """
-T088 — Coverage API integration tests.
+T088 -- Coverage API integration tests.
 
 Tests:
-- GET /coverage/city/{city_id}  → city summary + neighborhoods
-- GET /coverage/neighborhood/{neighborhood_id}  → detail + boundary
-- GET /coverage/neighborhood/{neighborhood_id}/streets  → GeoJSON FeatureCollection
-- GET /coverage/city/{city_id}/streets  → GeoJSON with optional filters
+- GET /coverage/city/{city_id}  -> city summary + neighborhoods
+- GET /coverage/neighborhood/{neighborhood_id}  -> detail + boundary
+- GET /coverage/neighborhood/{neighborhood_id}/streets  -> GeoJSON FeatureCollection
+- GET /coverage/city/{city_id}/streets  -> GeoJSON with optional filters
 """
 
 import datetime
@@ -14,9 +14,11 @@ import pytest
 from fastapi.testclient import TestClient
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString, MultiPolygon, Polygon
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
-from app.main import create_app
 from app.models.city import City
 from app.models.coverage import UserStreetCoverage
 from app.models.neighborhood import Neighborhood
@@ -25,30 +27,73 @@ from app.models.user import User
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Self-contained test engine (avoids SQLite cross-thread errors)
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
-def app_client(db_session):
-    """TestClient wired to the test database session."""
+def _make_test_session():
+    """Create an in-memory SQLite session with SpatiaLite for integration tests."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
-    def _override_db():
-        yield db_session
+    _spatialite_loaded = False
 
-    application = create_app()
-    application.dependency_overrides[get_db] = _override_db
-    with TestClient(application) as client:
-        yield client
+    @event.listens_for(engine, "connect")
+    def _load_spatialite(dbapi_conn, connection_record):
+        nonlocal _spatialite_loaded
+        dbapi_conn.enable_load_extension(True)
+        for lib_name in ("mod_spatialite", "libspatialite"):
+            try:
+                dbapi_conn.load_extension(lib_name)
+                _spatialite_loaded = True
+                break
+            except Exception:
+                continue
+        dbapi_conn.enable_load_extension(False)
+
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT InitSpatialMetaData(1)"))
+            conn.commit()
+        except Exception:
+            pytest.skip("SpatiaLite extension not available")
+
+    if not _spatialite_loaded:
+        pytest.skip("SpatiaLite extension not available")
+
+    Base.metadata.create_all(bind=engine)
+    TestSession = sessionmaker(bind=engine, expire_on_commit=False)
+    return TestSession
 
 
-@pytest.fixture()
-def seeded_db(db_session):
+def _get_test_app():
+    """Create the FastAPI app with test DB override."""
+    from app.main import create_app
+
+    test_app = create_app()
+    TestSession = _make_test_session()
+
+    def override_get_db():
+        session = TestSession()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    test_app.dependency_overrides[get_db] = override_get_db
+    return test_app, TestSession
+
+
+def _seed_data(session):
     """Seed database with a city, neighborhood, streets, user and coverage records."""
-    # Create tables
-    Base.metadata.create_all(db_session.get_bind())
-
-    # City
     poly = Polygon([
         (-122.40, 47.55), (-122.25, 47.55), (-122.25, 47.65),
         (-122.40, 47.65), (-122.40, 47.55),
@@ -62,10 +107,9 @@ def seeded_db(db_session):
         total_street_segments=2,
         total_street_length_m=400.0,
     )
-    db_session.add(city)
-    db_session.flush()
+    session.add(city)
+    session.flush()
 
-    # Neighborhood
     npoly = Polygon([
         (-122.35, 47.60), (-122.32, 47.60), (-122.32, 47.62),
         (-122.35, 47.62), (-122.35, 47.60),
@@ -77,10 +121,9 @@ def seeded_db(db_session):
         total_street_segments=2,
         total_street_length_m=400.0,
     )
-    db_session.add(neighborhood)
-    db_session.flush()
+    session.add(neighborhood)
+    session.flush()
 
-    # Streets
     street1 = StreetSegment(
         city_id=city.id,
         neighborhood_id=neighborhood.id,
@@ -103,10 +146,9 @@ def seeded_db(db_session):
         geometry=from_shape(LineString([(-122.32, 47.60), (-122.32, 47.61)]), srid=4326),
         length_meters=200.0,
     )
-    db_session.add_all([street1, street2])
-    db_session.flush()
+    session.add_all([street1, street2])
+    session.flush()
 
-    # User
     user = User(
         strava_athlete_id=12345,
         display_name="Test Runner",
@@ -116,10 +158,9 @@ def seeded_db(db_session):
         strava_scope="activity:read_all",
         sync_status="idle",
     )
-    db_session.add(user)
-    db_session.flush()
+    session.add(user)
+    session.flush()
 
-    # Coverage — street1 traveled, street2 not
     cov1 = UserStreetCoverage(
         user_id=user.id,
         street_segment_id=street1.id,
@@ -133,8 +174,8 @@ def seeded_db(db_session):
         coverage_ratio=0.30,
         is_traveled=False,
     )
-    db_session.add_all([cov1, cov2])
-    db_session.flush()
+    session.add_all([cov1, cov2])
+    session.commit()
 
     return {
         "city": city,
@@ -153,35 +194,53 @@ def seeded_db(db_session):
 class TestCityCoverageEndpoint:
     """GET /api/v1/coverage/city/{city_id}"""
 
-    def test_returns_city_summary(self, app_client, seeded_db):
-        city = seeded_db["city"]
-        resp = app_client.get(
-            f"/api/v1/coverage/city/{city.id}",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_returns_city_summary(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/city/{city_id}",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert "city" in data
         assert data["city"]["name"] == "Seattle"
         assert "neighborhoods" in data
 
-    def test_city_not_found(self, app_client, seeded_db):
-        resp = app_client.get(
-            "/api/v1/coverage/city/9999",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_city_not_found(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        _seed_data(session)
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                "/api/v1/coverage/city/9999",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 404
 
 
 class TestNeighborhoodDetailEndpoint:
     """GET /api/v1/coverage/neighborhood/{neighborhood_id}"""
 
-    def test_returns_neighborhood_detail(self, app_client, seeded_db):
-        n = seeded_db["neighborhood"]
-        resp = app_client.get(
-            f"/api/v1/coverage/neighborhood/{n.id}",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_returns_neighborhood_detail(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        n_id = entities["neighborhood"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/neighborhood/{n_id}",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["neighborhood"]["name"] == "Capitol Hill"
@@ -191,12 +250,18 @@ class TestNeighborhoodDetailEndpoint:
 class TestNeighborhoodStreetsEndpoint:
     """GET /api/v1/coverage/neighborhood/{neighborhood_id}/streets"""
 
-    def test_returns_geojson_feature_collection(self, app_client, seeded_db):
-        n = seeded_db["neighborhood"]
-        resp = app_client.get(
-            f"/api/v1/coverage/neighborhood/{n.id}/streets",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_returns_geojson_feature_collection(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        n_id = entities["neighborhood"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/neighborhood/{n_id}/streets",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["type"] == "FeatureCollection"
@@ -208,35 +273,55 @@ class TestNeighborhoodStreetsEndpoint:
 class TestCityStreetsEndpoint:
     """GET /api/v1/coverage/city/{city_id}/streets"""
 
-    def test_returns_all_streets(self, app_client, seeded_db):
-        city = seeded_db["city"]
-        resp = app_client.get(
-            f"/api/v1/coverage/city/{city.id}/streets",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_returns_all_streets(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        n_id = entities["neighborhood"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/city/{city_id}/streets?neighborhood_id={n_id}",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["type"] == "FeatureCollection"
         assert len(data["features"]) == 2
 
-    def test_filter_by_status_traveled(self, app_client, seeded_db):
-        city = seeded_db["city"]
-        resp = app_client.get(
-            f"/api/v1/coverage/city/{city.id}/streets?status=traveled",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_filter_by_status_traveled(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        n_id = entities["neighborhood"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/city/{city_id}/streets?neighborhood_id={n_id}&status=traveled",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["features"]) == 1
         assert data["features"][0]["properties"]["is_traveled"] is True
 
-    def test_filter_by_neighborhood(self, app_client, seeded_db):
-        city = seeded_db["city"]
-        n = seeded_db["neighborhood"]
-        resp = app_client.get(
-            f"/api/v1/coverage/city/{city.id}/streets?neighborhood_id={n.id}",
-            headers={"Authorization": "Bearer test"},
-        )
+    def test_filter_by_neighborhood(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        n_id = entities["neighborhood"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/coverage/city/{city_id}/streets?neighborhood_id={n_id}",
+                headers={"Authorization": "Bearer test"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["features"]) == 2
