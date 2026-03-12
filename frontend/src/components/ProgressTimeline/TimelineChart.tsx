@@ -5,7 +5,6 @@
  * No external chart library — lightweight inline SVG approach.
  */
 
-import React from "react";
 import type { TimelineEntry } from "@/types/api";
 
 interface TimelineChartProps {

@@ -5,7 +5,6 @@
  * and per-city breakdown.
  */
 
-import React from "react";
 import type { OverallStatsResponse } from "@/types/api";
 
 interface StatsOverviewProps {

@@ -4,7 +4,6 @@
  * Displays route statistics and segment breakdown.
  */
 
-import React from "react";
 import type { RouteSegment, GeoJSONLineString } from "@/types/api";
 
 interface RouteInfo {

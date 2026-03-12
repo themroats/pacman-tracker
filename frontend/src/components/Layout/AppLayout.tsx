@@ -4,7 +4,6 @@
  * Responsive layout shell with NavBar. Wraps page content.
  */
 
-import React from "react";
 import { Outlet } from "react-router-dom";
 import NavBar from "./NavBar";
 

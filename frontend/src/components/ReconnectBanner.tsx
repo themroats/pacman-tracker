@@ -4,8 +4,8 @@
  * Shows a banner prompting the user to reconnect Strava when their token has been revoked.
  */
 
-import React from "react";
 import { useAppStore } from "@/store";
+import { authApi } from "@/api/client";
 
 const STRAVA_ORANGE = "#fc4c02";
 
@@ -37,7 +37,7 @@ export default function ReconnectBanner() {
         </p>
       </div>
       <a
-        href="/api/v1/auth/strava"
+        href={authApi.getLoginUrl()}
         style={{
           backgroundColor: STRAVA_ORANGE,
           color: "#fff",

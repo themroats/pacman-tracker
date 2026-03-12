@@ -24,7 +24,6 @@ export interface AuthSlice {
   userId: number | null;
   displayName: string | null;
   accessToken: string | null;
-  syncStatus: string | null;
 }
 
 export interface ActivitySlice {

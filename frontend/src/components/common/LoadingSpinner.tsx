@@ -4,8 +4,6 @@
  * A simple CSS-only loading spinner component.
  */
 
-import React from "react";
-
 interface LoadingSpinnerProps {
   size?: number;
   message?: string;

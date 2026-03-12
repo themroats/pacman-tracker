@@ -35,7 +35,7 @@ export default function ActivityPopup({ activity, position, onClose }: ActivityP
   if (!activity || !position) return null;
 
   return (
-    <Popup position={position} onClose={onClose}>
+    <Popup position={position} eventHandlers={{ remove: onClose }}>
       <div style={{ minWidth: 200 }}>
         <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem" }}>{activity.name}</h3>
         <p style={{ margin: "0.25rem 0", color: "#666", fontSize: "0.85rem" }}>

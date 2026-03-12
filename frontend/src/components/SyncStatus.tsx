@@ -2,16 +2,14 @@
  * SyncStatus — sync status indicator component.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { syncApi } from "@/api/client";
 import { useAppStore } from "@/store";
-import type { SyncStatusResponse } from "@/types/api";
 
 export default function SyncStatus() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const storeSyncStatus = useAppStore((s) => s.syncStatus);
   const setSyncStatus = useAppStore((s) => s.setSyncStatus);
-  const [polling, setPolling] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -24,9 +22,7 @@ export default function SyncStatus() {
         setSyncStatus(status);
 
         // Stop polling when sync is complete
-        if (status.status === "idle" || status.status === "error") {
-          setPolling(false);
-        }
+        if (status.status === "idle" || status.status === "error") return;
       } catch {
         // Ignore errors silently
       }
@@ -36,7 +32,6 @@ export default function SyncStatus() {
 
     // Poll during active sync
     if (storeSyncStatus?.status === "importing" || storeSyncStatus?.status === "syncing") {
-      setPolling(true);
       timer = setInterval(fetchStatus, 5000);
     }
 

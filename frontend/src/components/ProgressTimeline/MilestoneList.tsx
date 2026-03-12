@@ -5,7 +5,6 @@
  * with dates for each neighborhood.
  */
 
-import React from "react";
 import type { Milestone } from "@/types/api";
 
 interface MilestoneListProps {
