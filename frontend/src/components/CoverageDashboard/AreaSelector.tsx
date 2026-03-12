@@ -14,6 +14,7 @@ interface AreaSelectorProps {
   selectedNeighborhoodId: number | null;
   onCityChange: (cityId: number | null) => void;
   onNeighborhoodChange: (neighborhoodId: number | null) => void;
+  citiesLoading?: boolean;
 }
 
 export default function AreaSelector({
@@ -23,6 +24,7 @@ export default function AreaSelector({
   selectedNeighborhoodId,
   onCityChange,
   onNeighborhoodChange,
+  citiesLoading = false,
 }: AreaSelectorProps) {
   const selectStyle: React.CSSProperties = {
     padding: "6px 10px",
@@ -41,6 +43,7 @@ export default function AreaSelector({
         <select
           role="combobox"
           value={selectedCityId ?? ""}
+          disabled={citiesLoading && cities.length === 0}
           onChange={(e) => {
             const val = e.target.value;
             onCityChange(val ? Number(val) : null);
@@ -48,7 +51,7 @@ export default function AreaSelector({
           }}
           style={{ ...selectStyle, marginLeft: "6px" }}
         >
-          <option value="">Select a city</option>
+          <option value="">{citiesLoading && cities.length === 0 ? "Preparing cities..." : "Select a city"}</option>
           {cities.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}, {c.state}

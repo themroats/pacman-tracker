@@ -21,6 +21,7 @@ interface RouteFormProps {
   startPoint?: { lng: number; lat: number } | null;
   /** Called when the selected city changes so the parent can load neighborhoods. */
   onCityChange?: (cityId: number | null) => void;
+  citiesLoading?: boolean;
 }
 
 export default function RouteForm({
@@ -30,6 +31,7 @@ export default function RouteForm({
   loading,
   startPoint,
   onCityChange,
+  citiesLoading = false,
 }: RouteFormProps) {
   const [distanceKm, setDistanceKm] = useState("5");
   const [cityId, setCityId] = useState<number | null>(cities[0]?.id ?? null);
@@ -109,6 +111,7 @@ export default function RouteForm({
         City
         <select
           value={cityId ?? ""}
+          disabled={citiesLoading && cities.length === 0}
           onChange={(e) => {
             const newId = e.target.value ? Number(e.target.value) : null;
             setCityId(newId);
@@ -117,6 +120,7 @@ export default function RouteForm({
           }}
           style={inputStyle}
         >
+          <option value="">{citiesLoading && cities.length === 0 ? "Preparing cities..." : "Select a city"}</option>
           {cities.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -145,7 +149,7 @@ export default function RouteForm({
 
       <button
         type="submit"
-        disabled={loading || !cityId}
+        disabled={loading || !cityId || (citiesLoading && cities.length === 0)}
         style={{
           padding: "10px",
           backgroundColor: loading ? "#9ca3af" : "#3b82f6",

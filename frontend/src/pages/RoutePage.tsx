@@ -4,13 +4,14 @@
  * Sidebar with RouteForm + RouteDetail, main map with RouteLayer.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";
 import RouteLayer from "@/components/Map/RouteLayer";
 import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import { routesApi, citiesApi } from "@/api/client";
+import { useCityCatalog } from "@/hooks/useCityCatalog";
 import { useAppStore } from "@/store";
 import type {
   RouteSuggestResponse,
@@ -33,10 +34,9 @@ interface RouteInfo {
 }
 
 export default function RoutePage() {
-  const cities = useAppStore((s) => s.cities);
   const neighborhoods = useAppStore((s) => s.neighborhoods);
-  const setCities = useAppStore((s) => s.setCities);
   const setNeighborhoods = useAppStore((s) => s.setNeighborhoods);
+  const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
 
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
@@ -51,13 +51,6 @@ export default function RoutePage() {
     { key: "route", label: "Route", color: "#6366f1", enabled: layerVis.route },
     { key: "untraveled", label: "Untraveled streets", color: "#22c55e", enabled: layerVis.untraveled },
   ];
-
-  // Load cities on mount
-  useEffect(() => {
-    if (cities.length === 0) {
-      citiesApi.list().then((r) => setCities(r.cities)).catch(() => {});
-    }
-  }, [cities.length, setCities]);
 
   const handleCityChange = useCallback(
     (cityId: number | null) => {
@@ -124,7 +117,18 @@ export default function RoutePage() {
             onCityChange={handleCityChange}
             onSubmit={handleSubmit}
             loading={loading}
+            citiesLoading={isBootstrapping}
           />
+          {isBootstrapping && cities.length === 0 && (
+            <p style={{ marginTop: "0.75rem", fontSize: "0.8125rem", color: "#6b7280" }}>
+              Preparing city data for the first run. This can take a minute or two.
+            </p>
+          )}
+          {bootstrapError && cities.length === 0 && (
+            <p style={{ marginTop: "0.75rem", fontSize: "0.8125rem", color: "#b91c1c" }}>
+              City bootstrap failed: {bootstrapError}
+            </p>
+          )}
         </div>
 
         <div style={{ borderTop: "1px solid #e5e7eb", flex: 1 }}>

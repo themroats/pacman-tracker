@@ -4,22 +4,20 @@
  * Shows city selector, timeline chart, milestones, and overall stats.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import TimelineChart from "@/components/ProgressTimeline/TimelineChart";
 import MilestoneList from "@/components/ProgressTimeline/MilestoneList";
 import StatsOverview from "@/components/ProgressTimeline/StatsOverview";
-import { progressApi, citiesApi } from "@/api/client";
-import { useAppStore } from "@/store";
+import { progressApi } from "@/api/client";
+import { useCityCatalog } from "@/hooks/useCityCatalog";
 import type {
-  ProgressResponse,
   OverallStatsResponse,
   Milestone,
   TimelineEntry,
 } from "@/types/api";
 
 export default function ProgressPage() {
-  const cities = useAppStore((s) => s.cities);
-  const setCities = useAppStore((s) => s.setCities);
+  const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
 
   const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
@@ -29,13 +27,6 @@ export default function ProgressPage() {
   const [stats, setStats] = useState<OverallStatsResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load cities on mount
-  useEffect(() => {
-    if (cities.length === 0) {
-      citiesApi.list().then((r) => setCities(r.cities)).catch(() => {});
-    }
-  }, [cities.length, setCities]);
-
   // Load stats on mount
   useEffect(() => {
     progressApi.stats().then(setStats).catch(() => {});
@@ -43,8 +34,9 @@ export default function ProgressPage() {
 
   // Auto-select first city
   useEffect(() => {
-    if (cities.length > 0 && selectedCityId === null) {
-      setSelectedCityId(cities[0].id);
+    const firstCity = cities[0];
+    if (firstCity && selectedCityId === null) {
+      setSelectedCityId(firstCity.id);
     }
   }, [cities, selectedCityId]);
 
@@ -76,6 +68,7 @@ export default function ProgressPage() {
           City{" "}
           <select
             value={selectedCityId ?? ""}
+            disabled={isBootstrapping && cities.length === 0}
             onChange={(e) => setSelectedCityId(e.target.value ? Number(e.target.value) : null)}
             style={{
               marginLeft: "0.5rem",
@@ -84,6 +77,7 @@ export default function ProgressPage() {
               border: "1px solid #d1d5db",
             }}
           >
+            <option value="">{isBootstrapping && cities.length === 0 ? "Preparing cities..." : "Select a city"}</option>
             {cities.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -91,6 +85,16 @@ export default function ProgressPage() {
             ))}
           </select>
         </label>
+        {isBootstrapping && cities.length === 0 && (
+          <p style={{ marginTop: "0.5rem", color: "#6b7280", fontSize: "0.8125rem" }}>
+            Preparing city data for the first run. This can take a minute or two.
+          </p>
+        )}
+        {bootstrapError && cities.length === 0 && (
+          <p style={{ marginTop: "0.5rem", color: "#b91c1c", fontSize: "0.8125rem" }}>
+            City bootstrap failed: {bootstrapError}
+          </p>
+        )}
       </div>
 
       {loading ? (

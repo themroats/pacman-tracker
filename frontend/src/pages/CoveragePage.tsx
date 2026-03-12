@@ -20,6 +20,7 @@ import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
 import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
 import { useAppStore } from "@/store";
 import { citiesApi, coverageApi, activitiesApi } from "@/api/client";
+import { useCityCatalog } from "@/hooks/useCityCatalog";
 import type {
   CityCoverageResponse,
   GeoJSONFeatureCollection,
@@ -29,8 +30,6 @@ export default function CoveragePage() {
   const navigate = useNavigate();
   const {
     isAuthenticated,
-    cities,
-    setCities,
     neighborhoods,
     setNeighborhoods,
     selectedCityId,
@@ -38,6 +37,7 @@ export default function CoveragePage() {
     selectedNeighborhoodId,
     setSelectedNeighborhood,
   } = useAppStore();
+  const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
 
   const [coverageData, setCoverageData] = useState<CityCoverageResponse | null>(null);
   const [streetsGeoJSON, setStreetsGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
@@ -60,11 +60,6 @@ export default function CoveragePage() {
   useEffect(() => {
     if (!isAuthenticated) navigate("/");
   }, [isAuthenticated, navigate]);
-
-  // Load cities on mount
-  useEffect(() => {
-    citiesApi.list().then((r) => setCities(r.cities)).catch(() => {});
-  }, [setCities]);
 
   // Load neighborhoods when city changes
   useEffect(() => {
@@ -169,7 +164,18 @@ export default function CoveragePage() {
             selectedNeighborhoodId={selectedNeighborhoodId}
             onCityChange={setSelectedCity}
             onNeighborhoodChange={setSelectedNeighborhood}
+            citiesLoading={isBootstrapping}
           />
+          {isBootstrapping && cities.length === 0 && (
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#6b7280" }}>
+              Preparing city data for the first run. This can take a minute or two.
+            </p>
+          )}
+          {bootstrapError && cities.length === 0 && (
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#b91c1c" }}>
+              City bootstrap failed: {bootstrapError}
+            </p>
+          )}
         </div>
 
         {/* Coverage summary */}

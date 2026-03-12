@@ -9,7 +9,7 @@ import type {
   ApiError,
   AuthCallbackResponse,
   CityCoverageResponse,
-  CityListItem,
+  CityListResponse,
   GeoJSONFeatureCollection,
   LogoutResponse,
   NeighborhoodDetailResponse,
@@ -223,8 +223,8 @@ export const progressApi = {
 
 export const citiesApi = {
   /** List all supported cities. */
-  async list(): Promise<{ cities: CityListItem[] }> {
-    return request<{ cities: CityListItem[] }>("/cities");
+  async list(): Promise<CityListResponse> {
+    return request<CityListResponse>("/cities");
   },
 
   /** Neighborhoods for a city. */

@@ -213,6 +213,12 @@ export interface CityListItem {
   total_neighborhoods: number;
 }
 
+export interface CityListResponse {
+  cities: CityListItem[];
+  bootstrap_status?: "idle" | "loading" | "ready" | "failed";
+  bootstrap_error?: string | null;
+}
+
 export interface NeighborhoodListItem {
   id: number;
   name: string;
