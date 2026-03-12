@@ -44,7 +44,7 @@ async def suggest_route(
 ):
     """Generate a route suggestion prioritising untraveled streets."""
     # Validate city
-    city = db.query(City).get(body.city_id)
+    city = db.get(City, body.city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {body.city_id} not found", 404)
 
@@ -88,8 +88,8 @@ async def route_history(
 
     routes = []
     for s in suggestions:
-        city = db.query(City).get(s.city_id)
-        n = db.query(Neighborhood).get(s.neighborhood_id) if s.neighborhood_id else None
+        city = db.get(City, s.city_id)
+        n = db.get(Neighborhood, s.neighborhood_id) if s.neighborhood_id else None
         routes.append(
             {
                 "id": s.id,

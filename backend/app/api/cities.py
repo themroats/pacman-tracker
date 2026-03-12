@@ -18,6 +18,10 @@ from app.main import AppError
 from app.models.city import City
 from app.models.neighborhood import Neighborhood
 from app.models.user import User
+from app.services.city_bootstrap import (
+    ensure_city_bootstrap_started,
+    get_city_bootstrap_state,
+)
 
 router = APIRouter(prefix="/cities", tags=["cities"])
 
@@ -39,6 +43,9 @@ from app.api.deps import get_current_user as _get_current_user
 async def list_cities(db: Session = Depends(get_db)):
     """List all supported cities."""
     cities = db.query(City).order_by(City.name).all()
+    bootstrap_state = (
+        get_city_bootstrap_state() if cities else ensure_city_bootstrap_started()
+    )
     return {
         "cities": [
             {
@@ -51,7 +58,9 @@ async def list_cities(db: Session = Depends(get_db)):
                 ),
             }
             for c in cities
-        ]
+        ],
+        "bootstrap_status": bootstrap_state["status"],
+        "bootstrap_error": bootstrap_state["error"],
     }
 
 
@@ -64,7 +73,7 @@ async def list_neighborhoods(
     """List neighborhoods for a city, with coverage percentages."""
     from app.api.coverage import _neighborhood_coverage
 
-    city = db.query(City).get(city_id)
+    city = db.get(City, city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {city_id} not found", 404)
 

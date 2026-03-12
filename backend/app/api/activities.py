@@ -169,7 +169,7 @@ async def get_activity(
     db: Session = Depends(get_db),
 ):
     """Get detailed activity with GPS trace."""
-    activity = db.query(Activity).get(activity_id)
+    activity = db.get(Activity, activity_id)
     if not activity:
         raise AppError("NOT_FOUND", "Activity not found", 404)
 
@@ -205,7 +205,7 @@ async def activity_geojson(
     db: Session = Depends(get_db),
 ):
     """Get single activity as GeoJSON Feature."""
-    activity = db.query(Activity).get(activity_id)
+    activity = db.get(Activity, activity_id)
     if not activity:
         raise AppError("NOT_FOUND", "Activity not found", 404)
 

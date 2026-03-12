@@ -97,7 +97,7 @@ async def _run_background_sync(user_id: int, access_token: str):
         importer = ActivityImporter(db_session=session)
         result = await importer.import_phase_a(user_id=user_id, access_token=access_token)
 
-        user = session.query(User).get(user_id)
+        user = session.get(User, user_id)
         if user:
             user.sync_status = "idle"
             user.last_sync_at = datetime.datetime.now(datetime.UTC)
@@ -112,7 +112,7 @@ async def _run_background_sync(user_id: int, access_token: str):
         logger.exception("Background sync failed for user %d", user_id)
         session.rollback()
         try:
-            user = session.query(User).get(user_id)
+            user = session.get(User, user_id)
             if user:
                 user.sync_status = "error"
                 session.commit()

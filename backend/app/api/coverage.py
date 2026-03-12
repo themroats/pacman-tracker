@@ -166,7 +166,7 @@ async def city_coverage(
     user: User = Depends(_get_current_user),
 ):
     """City-wide coverage summary with per-neighborhood breakdown."""
-    city = db.query(City).get(city_id)
+    city = db.get(City, city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {city_id} not found", 404)
 
@@ -203,11 +203,11 @@ async def neighborhood_detail(
     user: User = Depends(_get_current_user),
 ):
     """Detailed coverage for a single neighborhood, including boundary."""
-    n = db.query(Neighborhood).get(neighborhood_id)
+    n = db.get(Neighborhood, neighborhood_id)
     if not n:
         raise AppError("NOT_FOUND", f"Neighborhood {neighborhood_id} not found", 404)
 
-    city = db.query(City).get(n.city_id)
+    city = db.get(City, n.city_id)
     summary = _neighborhood_coverage(db, user.id, n)
 
     try:
@@ -247,7 +247,7 @@ async def neighborhood_streets(
     user: User = Depends(_get_current_user),
 ):
     """Street segments for a neighborhood with coverage status."""
-    n = db.query(Neighborhood).get(neighborhood_id)
+    n = db.get(Neighborhood, neighborhood_id)
     if not n:
         raise AppError("NOT_FOUND", f"Neighborhood {neighborhood_id} not found", 404)
 
@@ -268,7 +268,7 @@ async def city_streets(
     user: User = Depends(_get_current_user),
 ):
     """All street segments for a city with coverage status (GeoJSON)."""
-    city = db.query(City).get(city_id)
+    city = db.get(City, city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {city_id} not found", 404)
 

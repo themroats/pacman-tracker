@@ -122,7 +122,7 @@ async def _run_background_import(user_id: int, access_token: str):
         result = await importer.import_phase_a(user_id=user_id, access_token=access_token)
         logger.info("Phase A complete for user %d: %s", user_id, result)
 
-        user = session.query(User).get(user_id)
+        user = session.get(User, user_id)
         if user:
             user.sync_status = "idle"
             user.last_sync_at = datetime.datetime.now(datetime.UTC)
@@ -133,7 +133,7 @@ async def _run_background_import(user_id: int, access_token: str):
         logger.exception("Background import failed for user %d", user_id)
         session.rollback()
         try:
-            user = session.query(User).get(user_id)
+            user = session.get(User, user_id)
             if user:
                 user.sync_status = "error"
                 session.commit()

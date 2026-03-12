@@ -252,7 +252,7 @@ class ActivityImporter:
         """Retrieve and decrypt the access token for a user."""
         from app.services.crypto import decrypt_token
 
-        user = self.db.query(User).get(user_id)
+        user = self.db.get(User, user_id)
         if not user:
             raise ValueError(f"User {user_id} not found")
         return decrypt_token(user.access_token_encrypted)
