@@ -57,13 +57,13 @@ class StravaOAuthService:
     # OAuth
     # ------------------------------------------------------------------
 
-    def get_authorization_url(self) -> tuple[str, str]:
+    def get_authorization_url(self, state: str | None = None) -> tuple[str, str]:
         """
         Generate Strava OAuth authorization URL with CSRF state token.
 
         Returns (url, state) tuple.
         """
-        state = secrets.token_urlsafe(32)
+        state = state or secrets.token_urlsafe(32)
         params = {
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,

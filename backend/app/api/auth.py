@@ -8,13 +8,19 @@ Endpoints:
 """
 
 import asyncio
+import base64
 import datetime
+import hashlib
+import hmac
+import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import get_db
 from app.main import AppError
 from app.models.user import User
@@ -26,16 +32,60 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# In-memory state store for CSRF tokens (use Redis in production)
-_csrf_states: dict[str, datetime.datetime] = {}
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(raw: str) -> bytes:
+    padding = "=" * (-len(raw) % 4)
+    return base64.urlsafe_b64decode(raw + padding)
+
+
+def _issue_state_token() -> str:
+    """Create a signed OAuth state token that survives restarts and scale-out."""
+    settings = get_settings()
+    payload = {
+        "nonce": hashlib.sha256(f"{time.time_ns()}".encode("utf-8")).hexdigest(),
+        "ts": int(time.time()),
+    }
+    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    signature = hmac.new(
+        settings.secret_key.encode("utf-8"),
+        payload_bytes,
+        hashlib.sha256,
+    ).digest()
+    return f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
+
+
+def _validate_state_token(token: str, max_age_seconds: int = 900) -> bool:
+    """Validate the signed OAuth state token and reject expired or tampered values."""
+    try:
+        payload_part, signature_part = token.split(".", 1)
+        payload_bytes = _b64url_decode(payload_part)
+        signature = _b64url_decode(signature_part)
+        settings = get_settings()
+        expected_signature = hmac.new(
+            settings.secret_key.encode("utf-8"),
+            payload_bytes,
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(signature, expected_signature):
+            return False
+
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        issued_at = int(payload["ts"])
+        return (int(time.time()) - issued_at) <= max_age_seconds
+    except Exception:
+        return False
 
 
 @router.get("/strava")
 async def strava_login():
     """Redirect user to Strava OAuth authorization page."""
     service = StravaOAuthService()
-    url, state = service.get_authorization_url()
-    _csrf_states[state] = datetime.datetime.now(datetime.UTC)
+    state = _issue_state_token()
+    url, _ = service.get_authorization_url(state=state)
     return RedirectResponse(url=url, status_code=302)
 
 
@@ -48,11 +98,8 @@ async def strava_callback(
 ):
     """Handle Strava OAuth callback after user authorization."""
     # Validate CSRF state
-    if state not in _csrf_states:
+    if not _validate_state_token(state):
         raise AppError("VALIDATION_ERROR", "Invalid state parameter", 400)
-
-    # Clean up used state
-    del _csrf_states[state]
 
     # Exchange code for tokens
     service = StravaOAuthService()
