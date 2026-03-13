@@ -18,6 +18,12 @@ dist/
 build/
 *.tsbuildinfo
 
+# TS config build artifacts
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/vitest.config.js
+frontend/vitest.config.d.ts
+
 # Environment
 .env
 .env.local
