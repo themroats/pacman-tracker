@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # --- City bootstrap ---
     auto_load_cities_on_empty_db: bool = True
     auto_load_city_name: str = ""
+    manual_bootstrap_token: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -121,6 +121,7 @@ def create_app() -> FastAPI:
 
     # --- Routers ---
     from app.api.auth import router as auth_router
+    from app.api.admin import router as admin_router
     from app.api.activities import router as activities_router
     from app.api.cities import router as cities_router
     from app.api.coverage import router as coverage_router
@@ -130,6 +131,7 @@ def create_app() -> FastAPI:
     from app.api.webhook import router as webhook_router
 
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
     app.include_router(activities_router, prefix="/api/v1")
     app.include_router(cities_router, prefix="/api/v1")
     app.include_router(coverage_router, prefix="/api/v1")

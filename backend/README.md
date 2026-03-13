@@ -147,6 +147,15 @@ All endpoints are prefixed with `/api/v1`.
 | `GET` | `/cities/{id}/neighborhoods` | Neighborhoods in a city with coverage % |
 | `GET` | `/cities/{id}/neighborhoods/{nid}/boundary` | Neighborhood boundary GeoJSON |
 
+### Admin
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/admin/bootstrap/cities` | Get manual city bootstrap status (requires `X-Admin-Token`) |
+| `POST` | `/admin/bootstrap/cities` | Start manual city bootstrap (requires `X-Admin-Token`) |
+
+Set `MANUAL_BOOTSTRAP_TOKEN` in the backend environment to enable these endpoints.
+
 ### Coverage
 
 | Method | Path | Description |

@@ -21,6 +21,14 @@ _state = {
 }
 
 
+def _state_payload(status: str, error: str | None) -> dict[str, str | bool | None]:
+    return {
+        "status": status,
+        "in_progress": status == "loading",
+        "error": error,
+    }
+
+
 def _has_city_data() -> bool:
     session = get_session_factory()()
     try:
@@ -36,11 +44,7 @@ def _set_state(**updates) -> None:
 
 def get_city_bootstrap_state() -> dict[str, str | bool | None]:
     if _has_city_data():
-        return {
-            "status": "ready",
-            "in_progress": False,
-            "error": None,
-        }
+        return _state_payload("ready", None)
 
     with _state_lock:
         if _state["in_progress"]:
@@ -50,11 +54,7 @@ def get_city_bootstrap_state() -> dict[str, str | bool | None]:
         else:
             status = "idle"
 
-        return {
-            "status": status,
-            "in_progress": bool(_state["in_progress"]),
-            "error": _state["error"],
-        }
+        return _state_payload(status, _state["error"])
 
 
 def _run_bootstrap(target_city: str | None) -> None:
@@ -70,30 +70,23 @@ def _run_bootstrap(target_city: str | None) -> None:
         _set_state(in_progress=False, failed=True, error=str(exc))
 
 
-def ensure_city_bootstrap_started() -> dict[str, str | bool | None]:
-    settings = get_settings()
-    if not settings.auto_load_cities_on_empty_db:
-        return get_city_bootstrap_state()
-
-    if _has_city_data():
+def start_city_bootstrap(target_city: str | None = None, *, force: bool = False) -> dict[str, str | bool | None]:
+    if _has_city_data() and not force:
         return get_city_bootstrap_state()
 
     with _state_lock:
         if _state["in_progress"]:
-            return {
-                "status": "loading",
+            return _state_payload("loading", _state["error"])
+
+        _state.update(
+            {
+                "started": True,
                 "in_progress": True,
-                "error": _state["error"],
+                "failed": False,
+                "error": None,
             }
+        )
 
-        _state.update({
-            "started": True,
-            "in_progress": True,
-            "failed": False,
-            "error": None,
-        })
-
-    target_city = settings.auto_load_city_name.strip() or None
     thread = threading.Thread(
         target=_run_bootstrap,
         args=(target_city,),
@@ -102,8 +95,20 @@ def ensure_city_bootstrap_started() -> dict[str, str | bool | None]:
     )
     thread.start()
 
-    return {
-        "status": "loading",
-        "in_progress": True,
-        "error": None,
-    }
+    return _state_payload("loading", None)
+
+
+def ensure_city_bootstrap_started() -> dict[str, str | bool | None]:
+    settings = get_settings()
+    if not settings.auto_load_cities_on_empty_db:
+        return get_city_bootstrap_state()
+
+    if _has_city_data():
+        return get_city_bootstrap_state()
+
+    target_city = settings.auto_load_city_name.strip() or None
+    return start_city_bootstrap(target_city)
+
+
+def reset_city_bootstrap_state() -> None:
+    _set_state(started=False, in_progress=False, failed=False, error=None)
