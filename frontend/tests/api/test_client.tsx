@@ -126,4 +126,27 @@ describe("API Client", () => {
     expect(url).toContain("sport_type=Run");
     expect(url).toContain("limit=10");
   });
+
+  it("uses a plain GET for auth callback without auth or JSON headers", async () => {
+    localStorage.setItem("access_token", "stale-token");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        user_id: 1,
+        display_name: "Otis",
+        access_token: "fresh-token",
+        home_city: null,
+        sync_status: "importing",
+      }),
+    });
+
+    const { authApi } = await import("@/api/client");
+    await authApi.callback("code-123", "activity:read_all", "state-123");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/auth/strava/callback?");
+    expect(url).toContain("code=code-123");
+    expect(init).toEqual({ method: "GET" });
+  });
 });

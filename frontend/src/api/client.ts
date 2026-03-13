@@ -95,9 +95,27 @@ export const authApi = {
 
   /** Exchange OAuth code for session. */
   async callback(code: string, scope: string, state: string): Promise<AuthCallbackResponse> {
-    return request<AuthCallbackResponse>(
-      `/auth/strava/callback${buildQuery({ code, scope, state })}`,
+    const res = await fetch(
+      `${BASE_URL}/auth/strava/callback${buildQuery({ code, scope, state })}`,
+      {
+        method: "GET",
+      },
     );
+
+    if (!res.ok) {
+      let body: ApiError;
+      try {
+        body = await res.json();
+      } catch {
+        throw new ApiClientError(
+          { code: "UNKNOWN", message: res.statusText, details: {} },
+          res.status,
+        );
+      }
+      throw new ApiClientError(body.error, res.status);
+    }
+
+    return res.json() as Promise<AuthCallbackResponse>;
   },
 
   /** Logout current user. */
