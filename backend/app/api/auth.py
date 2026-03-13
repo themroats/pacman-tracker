@@ -7,7 +7,6 @@ Endpoints:
 - POST /auth/logout           → End user session
 """
 
-import asyncio
 import base64
 import datetime
 import hashlib
@@ -16,7 +15,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -94,6 +93,7 @@ async def strava_callback(
     code: str = Query(...),
     scope: str = Query(...),
     state: str = Query(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
     """Handle Strava OAuth callback after user authorization."""
@@ -144,7 +144,7 @@ async def strava_callback(
 
     # Kick off background import if user is in "importing" state
     if user.sync_status == "importing":
-        asyncio.create_task(_run_background_import(user.id, token_data["access_token"]))
+        background_tasks.add_task(_run_background_import, user.id, token_data["access_token"])
 
     return AuthCallbackResponse(
         user_id=user.id,
