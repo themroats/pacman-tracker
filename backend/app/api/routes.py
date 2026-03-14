@@ -22,6 +22,11 @@ from app.services.routing import RoutePlannerService
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
+SERVICE_ERROR_STATUS_CODES = {
+    "NOT_FOUND": 404,
+    "OSRM_UNAVAILABLE": 503,
+}
+
 
 # ---------------------------------------------------------------------------
 # Auth helper
@@ -67,7 +72,11 @@ async def suggest_route(
 
     # Handle service-level errors
     if "error" in result:
-        raise AppError(result["error"], result["message"], 404)
+        raise AppError(
+            result["error"],
+            result["message"],
+            SERVICE_ERROR_STATUS_CODES.get(result["error"], 400),
+        )
 
     return result
 

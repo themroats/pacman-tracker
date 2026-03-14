@@ -225,6 +225,30 @@ class TestRouteSuggestEndpoint:
         assert data["route"]["distance_meters"] == 3000
         assert data["route"]["untraveled_ratio"] == 0.70
 
+    @patch("app.api.routes.RoutePlannerService")
+    def test_osrm_unavailable_returns_503(self, MockPlanner):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        session.close()
+
+        mock_instance = MockPlanner.return_value
+        mock_instance.suggest = AsyncMock(return_value={
+            "error": "OSRM_UNAVAILABLE",
+            "message": "OSRM service is unavailable",
+        })
+
+        with TestClient(app) as client:
+            resp = client.post("/api/v1/routes/suggest", json={
+                "city_id": city_id,
+                "start_point": {"lng": -122.33, "lat": 47.61},
+                "distance_meters": 3000,
+            })
+
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "OSRM_UNAVAILABLE"
+
 
 class TestRouteHistoryEndpoint:
     """GET /routes/history."""

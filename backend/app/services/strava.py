@@ -8,6 +8,7 @@ Covers:
 """
 
 import datetime
+import json
 import secrets
 from typing import Any
 from urllib.parse import urlencode
@@ -120,7 +121,8 @@ class StravaOAuthService:
                     "grant_type": "authorization_code",
                 },
             )
-            self._check_response(resp)
+            if resp.status_code >= 400:
+                raise StravaAPIError(resp.status_code, self._format_error_message(resp))
             return resp.json()
 
     async def _post_token_refresh(self, refresh_token: str) -> dict[str, Any]:
@@ -202,6 +204,30 @@ class StravaOAuthService:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _format_error_message(resp: httpx.Response) -> str:
+        """Extract a concise error message from a Strava error response."""
+        try:
+            payload = resp.json()
+        except json.JSONDecodeError:
+            return resp.text
+
+        message = payload.get("message")
+        errors = payload.get("errors") or []
+        if not errors:
+            return message or resp.text
+
+        detail_parts = []
+        for error in errors:
+            resource = error.get("resource") or "unknown"
+            field = error.get("field") or "unknown"
+            code = error.get("code") or "unknown"
+            detail_parts.append(f"{resource}.{field}: {code}")
+
+        if message:
+            return f"{message} ({'; '.join(detail_parts)})"
+        return "; ".join(detail_parts)
 
     @staticmethod
     def _check_response(resp: httpx.Response) -> None:

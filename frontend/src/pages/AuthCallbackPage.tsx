@@ -2,7 +2,7 @@
  * AuthCallbackPage — processes OAuth code from Strava, stores session, redirects to map.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authApi } from "@/api/client";
 import { useAppStore } from "@/store";
@@ -12,8 +12,13 @@ export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const login = useAppStore((s) => s.login);
   const [error, setError] = useState<string | null>(null);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
+    if (hasStartedRef.current) {
+      return;
+    }
+
     const code = searchParams.get("code");
     const scope = searchParams.get("scope");
     const state = searchParams.get("state");
@@ -23,6 +28,14 @@ export default function AuthCallbackPage() {
       return;
     }
 
+    const callbackKey = `strava-callback:${state}:${code}`;
+    if (sessionStorage.getItem(callbackKey) === "done") {
+      return;
+    }
+
+    hasStartedRef.current = true;
+    sessionStorage.setItem(callbackKey, "done");
+
     authApi
       .callback(code, scope, state)
       .then((res) => {
@@ -30,6 +43,8 @@ export default function AuthCallbackPage() {
         navigate("/map", { replace: true });
       })
       .catch((err) => {
+        sessionStorage.removeItem(callbackKey);
+        hasStartedRef.current = false;
         setError(err.message || "Authentication failed");
       });
   }, [searchParams, login, navigate]);
