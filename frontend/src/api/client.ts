@@ -19,6 +19,7 @@ import type {
   RouteSuggestRequest,
   RouteSuggestResponse,
   RouteHistoryItem,
+  SyncTriggerResponse,
   SyncStatusResponse,
 } from "@/types/api";
 
@@ -163,8 +164,13 @@ export const syncApi = {
   },
 
   /** Trigger an incremental sync. */
-  async trigger(): Promise<{ message: string; status: string }> {
-    return request<{ message: string; status: string }>("/sync/trigger", { method: "POST" });
+  async trigger(): Promise<SyncTriggerResponse> {
+    return request<SyncTriggerResponse>("/sync/trigger", { method: "POST" });
+  },
+
+  /** Trigger coverage matching for imported activities. */
+  async triggerCoverage(): Promise<SyncTriggerResponse> {
+    return request<SyncTriggerResponse>("/sync/coverage", { method: "POST" });
   },
 };
 

@@ -7,7 +7,7 @@
  * - Coverage summary panel
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer } from "react-leaflet";
 import StreetCoverageLayer from "@/components/Map/StreetCoverageLayer";
@@ -19,12 +19,45 @@ import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
 import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
 import { useAppStore } from "@/store";
-import { citiesApi, coverageApi, activitiesApi } from "@/api/client";
+import { citiesApi, coverageApi, activitiesApi, syncApi, ApiClientError } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
 import type {
   CityCoverageResponse,
   GeoJSONFeatureCollection,
+  SyncStatusResponse,
 } from "@/types/api";
+
+function isCoverageJobActive(status: string | undefined): boolean {
+  return status === "importing" || status === "syncing";
+}
+
+function formatLastCoverageRun(lastSyncAt: string | null): string {
+  if (!lastSyncAt) return "Not yet run";
+
+  const timestamp = new Date(lastSyncAt);
+  if (Number.isNaN(timestamp.getTime())) return "Not yet run";
+
+  return timestamp.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function buildCoverageProgressMessage(status: SyncStatusResponse): string | null {
+  if (status.status === "error") {
+    return status.error_message || "Coverage matching failed. Please try again.";
+  }
+
+  if (!isCoverageJobActive(status.status)) {
+    return status.last_sync_at ? "Coverage data is up to date." : null;
+  }
+
+  if (status.imported_activities <= 0) {
+    return "Preparing imported activities for coverage matching.";
+  }
+
+  return `Matched ${status.matched_activities} of ${status.imported_activities} imported activities.`;
+}
 
 export default function CoveragePage() {
   const navigate = useNavigate();
@@ -44,6 +77,19 @@ export default function CoveragePage() {
   const [activitiesGeoJSON, setActivitiesGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
   const [neighborhoodFeatures, setNeighborhoodFeatures] = useState<NeighborhoodFeature[]>([]);
   const [loading, setLoading] = useState(false);
+  const [coverageStatus, setCoverageStatus] = useState<SyncStatusResponse | null>(null);
+  const [coverageJobMessage, setCoverageJobMessage] = useState<string | null>(null);
+  const [coverageJobError, setCoverageJobError] = useState<string | null>(null);
+  const [lastCoverageRunLabel, setLastCoverageRunLabel] = useState<string>("Not yet run");
+  const previousCoverageStatus = useRef<string | null>(null);
+
+  const coverageJobRunning = isCoverageJobActive(coverageStatus?.status);
+  const coverageCompletionPercent = coverageStatus?.imported_activities
+    ? Math.min(
+        100,
+        Math.round((coverageStatus.matched_activities / coverageStatus.imported_activities) * 100),
+      )
+    : 0;
 
   const [layerVis, setLayerVis] = useState({ activities: true, traveled: true, untraveled: true, neighborhoods: true });
   const toggleLayer = useCallback((key: string) => {
@@ -56,10 +102,66 @@ export default function CoveragePage() {
     { key: "neighborhoods", label: "Neighborhoods", color: "#9ca3af", enabled: layerVis.neighborhoods },
   ];
 
+  const loadCoverageData = useCallback(async (cityId: number) => {
+    setLoading(true);
+    try {
+      const data = await coverageApi.city(cityId);
+      setCoverageData(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadStreetCoverage = useCallback((cityId: number, neighborhoodId: number | null) => {
+    return coverageApi.cityStreets(cityId, {
+      neighborhood_id: neighborhoodId ?? undefined,
+    }).then(setStreetsGeoJSON);
+  }, []);
+
+  const loadCityActivities = useCallback((cityId: number) => {
+    return activitiesApi.getAllGeoJSON({ city_id: cityId }).then(setActivitiesGeoJSON);
+  }, []);
+
+  const refreshCoveragePageData = useCallback(async () => {
+    if (!selectedCityId) return;
+
+    await Promise.allSettled([
+      loadCoverageData(selectedCityId),
+      loadStreetCoverage(selectedCityId, selectedNeighborhoodId),
+      loadCityActivities(selectedCityId),
+    ]);
+  }, [loadCityActivities, loadCoverageData, loadStreetCoverage, selectedCityId, selectedNeighborhoodId]);
+
+  const applyCoverageStatus = useCallback((status: SyncStatusResponse) => {
+    setCoverageStatus(status);
+    setCoverageJobError(status.status === "error" ? status.error_message || "Coverage matching failed. Please try again." : null);
+    setCoverageJobMessage(status.status === "error" ? null : buildCoverageProgressMessage(status));
+    setLastCoverageRunLabel(formatLastCoverageRun(status.last_sync_at));
+  }, []);
+
+  const fetchCoverageStatus = useCallback(async () => {
+    const status = await syncApi.status();
+    applyCoverageStatus(status);
+    return status;
+  }, [applyCoverageStatus]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) navigate("/");
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCoverageStatus(null);
+      setCoverageJobMessage(null);
+      setCoverageJobError(null);
+      setLastCoverageRunLabel("Not yet run");
+      previousCoverageStatus.current = null;
+      return;
+    }
+
+    fetchCoverageStatus().catch(() => {});
+  }, [fetchCoverageStatus, isAuthenticated]);
 
   // Load neighborhoods when city changes
   useEffect(() => {
@@ -81,12 +183,10 @@ export default function CoveragePage() {
       setNeighborhoodFeatures([]);
       return;
     }
-    setLoading(true);
-    coverageApi.city(selectedCityId)
-      .then(setCoverageData)
+    loadCoverageData(selectedCityId)
       .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [selectedCityId]);
+      .finally(() => {});
+  }, [loadCoverageData, selectedCityId]);
 
   // Load streets when city or neighborhood changes
   useEffect(() => {
@@ -94,12 +194,9 @@ export default function CoveragePage() {
       setStreetsGeoJSON(null);
       return;
     }
-    coverageApi.cityStreets(selectedCityId, {
-      neighborhood_id: selectedNeighborhoodId ?? undefined,
-    })
-      .then(setStreetsGeoJSON)
+    loadStreetCoverage(selectedCityId, selectedNeighborhoodId)
       .catch(() => {});
-  }, [selectedCityId, selectedNeighborhoodId]);
+  }, [loadStreetCoverage, selectedCityId, selectedNeighborhoodId]);
 
   // Load activities separately (only depends on city)
   useEffect(() => {
@@ -107,10 +204,9 @@ export default function CoveragePage() {
       setActivitiesGeoJSON(null);
       return;
     }
-    activitiesApi.getAllGeoJSON({ city_id: selectedCityId })
-      .then(setActivitiesGeoJSON)
+    loadCityActivities(selectedCityId)
       .catch(() => {});
-  }, [selectedCityId]);
+  }, [loadCityActivities, selectedCityId]);
 
   // Load neighborhood boundaries
   useEffect(() => {
@@ -141,6 +237,48 @@ export default function CoveragePage() {
     },
     [selectedNeighborhoodId, setSelectedNeighborhood],
   );
+
+  useEffect(() => {
+    if (!isAuthenticated || !coverageJobRunning) return;
+
+    const timer = window.setInterval(() => {
+      fetchCoverageStatus().catch(() => {});
+    }, 2000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [coverageJobRunning, fetchCoverageStatus, isAuthenticated]);
+
+  useEffect(() => {
+    const previousStatus = previousCoverageStatus.current;
+    const currentStatus = coverageStatus?.status ?? null;
+
+    if (previousStatus && isCoverageJobActive(previousStatus) && currentStatus === "idle") {
+      setCoverageJobMessage("Coverage data updated.");
+      refreshCoveragePageData().catch(() => {});
+    }
+
+    previousCoverageStatus.current = currentStatus;
+  }, [coverageStatus?.status, refreshCoveragePageData]);
+
+  const handleRunCoverage = useCallback(async () => {
+    if (!selectedCityId || coverageJobRunning) return;
+
+    setCoverageJobError(null);
+    setCoverageJobMessage("Coverage matching started. This may take a few minutes.");
+
+    try {
+      await syncApi.triggerCoverage();
+      await fetchCoverageStatus();
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        setCoverageJobError(error.message);
+      } else {
+        setCoverageJobError("Coverage matching failed. Please try again.");
+      }
+    }
+  }, [coverageJobRunning, fetchCoverageStatus, selectedCityId]);
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", position: "absolute", inset: 0 }}>
@@ -176,6 +314,80 @@ export default function CoveragePage() {
               City bootstrap failed: {bootstrapError}
             </p>
           )}
+          <div
+            style={{
+              marginTop: "0.75rem",
+              padding: "0.75rem",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>
+              Coverage Processing
+            </div>
+            <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#4b5563", lineHeight: 1.45 }}>
+              Processes your imported GPS activities and updates street coverage for your account.
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
+              <button
+                onClick={handleRunCoverage}
+                disabled={!selectedCityId || coverageJobRunning || !isAuthenticated}
+                style={{
+                  padding: "8px 12px",
+                  backgroundColor: coverageJobRunning ? "#93c5fd" : "#2563eb",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: !selectedCityId || coverageJobRunning || !isAuthenticated ? "not-allowed" : "pointer",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                }}
+              >
+                {coverageJobRunning ? "Running Coverage Matching..." : "Run Coverage Matching"}
+              </button>
+              <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                Last run: {lastCoverageRunLabel}
+              </span>
+            </div>
+            {coverageJobRunning && (
+              <>
+                <div
+                  aria-label="Coverage processing progress"
+                  style={{
+                    marginTop: "0.75rem",
+                    width: "100%",
+                    height: "8px",
+                    borderRadius: "999px",
+                    backgroundColor: "#dbeafe",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${coverageCompletionPercent}%`,
+                      height: "100%",
+                      backgroundColor: "#2563eb",
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </div>
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#4b5563" }}>
+                  {coverageStatus?.imported_activities ?? 0} imported activities • {coverageStatus?.matched_activities ?? 0} matched
+                </p>
+              </>
+            )}
+            {coverageJobMessage && !coverageJobError && (
+              <p style={{ margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#1d4ed8" }}>
+                {coverageJobMessage}
+              </p>
+            )}
+            {coverageJobError && (
+              <p style={{ margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#b91c1c" }}>
+                {coverageJobError}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Coverage summary */}

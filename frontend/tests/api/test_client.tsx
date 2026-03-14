@@ -149,4 +149,22 @@ describe("API Client", () => {
     expect(url).toContain("code=code-123");
     expect(init).toEqual({ method: "GET" });
   });
+
+  it("posts to the coverage trigger endpoint", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        message: "Coverage matching started",
+        status: "syncing",
+      }),
+    });
+
+    const { syncApi } = await import("@/api/client");
+    await syncApi.triggerCoverage();
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/sync/coverage");
+    expect(init.method).toBe("POST");
+  });
 });

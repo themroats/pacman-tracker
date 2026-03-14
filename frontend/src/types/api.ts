@@ -85,6 +85,11 @@ export interface SyncStatusResponse {
   error_message: string | null;
 }
 
+export interface SyncTriggerResponse {
+  message: string;
+  status: string;
+}
+
 // ---------------------------------------------------------------------------
 // Coverage
 // ---------------------------------------------------------------------------

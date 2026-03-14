@@ -8,8 +8,86 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
+
+vi.mock("react-leaflet", () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TileLayer: () => null,
+}));
+
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => vi.fn(),
+}));
+
+vi.mock("@/components/Map/StreetCoverageLayer", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/Map/NeighborhoodLayer", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/Map/ActivityLayer", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/Map/LayerToggles", () => ({
+  default: () => null,
+}));
+
+const triggerCoverage = vi.fn();
+const syncStatus = vi.fn();
+const citiesApiNeighborhoods = vi.fn().mockResolvedValue({ neighborhoods: [] });
+const setNeighborhoods = vi.fn();
+const setSelectedCity = vi.fn();
+const setSelectedNeighborhood = vi.fn();
+const mockedNeighborhoods: never[] = [];
+const mockedCities = [
+  { id: 1, name: "Seattle", state: "Washington", total_street_segments: 100, total_neighborhoods: 0 },
+];
+const coverageApiCity = vi.fn().mockResolvedValue({
+  city: {
+    id: 1,
+    name: "Seattle",
+    coverage_percentage: 0,
+    streets_traveled: 0,
+    streets_total: 100,
+    distance_traveled_m: 0,
+    distance_total_m: 1000,
+  },
+  neighborhoods: [],
+});
+const coverageApiCityStreets = vi.fn().mockResolvedValue({ type: "FeatureCollection", features: [] });
+const activitiesApiGeo = vi.fn().mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+vi.mock("@/api/client", () => ({
+  citiesApi: { neighborhoods: citiesApiNeighborhoods, neighborhoodBoundary: vi.fn() },
+  coverageApi: { city: coverageApiCity, cityStreets: coverageApiCityStreets },
+  activitiesApi: { getAllGeoJSON: activitiesApiGeo },
+  syncApi: { triggerCoverage, status: syncStatus },
+  ApiClientError: class extends Error {},
+}));
+
+vi.mock("@/hooks/useCityCatalog", () => ({
+  useCityCatalog: () => ({
+    cities: mockedCities,
+    isBootstrapping: false,
+    bootstrapError: null,
+  }),
+}));
+
+vi.mock("@/store", () => ({
+  useAppStore: () => ({
+    isAuthenticated: true,
+    neighborhoods: mockedNeighborhoods,
+    setNeighborhoods,
+    selectedCityId: 1,
+    setSelectedCity,
+    selectedNeighborhoodId: null,
+    setSelectedNeighborhood,
+  }),
+}));
 
 // ---------------------------------------------------------------------------
 // StreetCoverageLayer — renders color-coded streets
@@ -22,30 +100,6 @@ describe("StreetCoverageLayer", () => {
       const { default: StreetCoverageLayer } = await import(
         "@/components/Map/StreetCoverageLayer"
       );
-
-      const features = {
-        type: "FeatureCollection" as const,
-        features: [
-          {
-            type: "Feature" as const,
-            properties: {
-              id: 1,
-              name: "E Pine St",
-              is_traveled: true,
-              coverage_ratio: 0.92,
-              highway_type: "residential",
-              length_meters: 200,
-            },
-            geometry: {
-              type: "LineString" as const,
-              coordinates: [
-                [-122.33, 47.6],
-                [-122.33, 47.61],
-              ],
-            },
-          },
-        ],
-      };
 
       // StreetCoverageLayer is a react-leaflet child → just check it doesn't throw
       // (Map context is mocked in tests/setup.ts)
@@ -211,6 +265,92 @@ describe("AreaSelector", () => {
       expect(onCityChange).toHaveBeenCalledWith(1);
     } catch {
       expect(true).toBe(true);
+    }
+  });
+});
+
+describe("CoveragePage", () => {
+  beforeEach(() => {
+    triggerCoverage.mockReset();
+    syncStatus.mockReset();
+    citiesApiNeighborhoods.mockClear();
+    coverageApiCity.mockClear();
+    coverageApiCityStreets.mockClear();
+    activitiesApiGeo.mockClear();
+    setNeighborhoods.mockClear();
+    setSelectedCity.mockClear();
+    setSelectedNeighborhood.mockClear();
+    syncStatus.mockResolvedValue({
+      status: "idle",
+      total_activities: 1,
+      imported_activities: 1,
+      matched_activities: 1,
+      last_sync_at: null,
+      error_message: null,
+    });
+  });
+
+  it("renders a coverage processing header action", async () => {
+    const { default: CoveragePage } = await import("@/pages/CoveragePage");
+    render(<CoveragePage />);
+
+    expect(screen.getByText(/Coverage Processing/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Run Coverage Matching/i })).toBeInTheDocument();
+  });
+
+  it("triggers coverage matching from the header action", async () => {
+    triggerCoverage.mockResolvedValue({ message: "Coverage matching started", status: "syncing" });
+    syncStatus
+      .mockResolvedValueOnce({
+        status: "idle",
+        total_activities: 4,
+        imported_activities: 4,
+        matched_activities: 0,
+        last_sync_at: null,
+        error_message: null,
+      })
+      .mockResolvedValueOnce({
+        status: "syncing",
+        total_activities: 4,
+        imported_activities: 4,
+        matched_activities: 2,
+        last_sync_at: null,
+        error_message: null,
+      })
+      .mockResolvedValueOnce({
+        status: "idle",
+        total_activities: 4,
+        imported_activities: 4,
+        matched_activities: 4,
+        last_sync_at: "2026-03-14T17:30:00Z",
+        error_message: null,
+      });
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation(() => {});
+    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation(((callback: TimerHandler) => {
+      queueMicrotask(() => {
+        if (typeof callback === "function") {
+          callback();
+        }
+      });
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof window.setInterval);
+
+    const { default: CoveragePage } = await import("@/pages/CoveragePage");
+    const view = render(<CoveragePage />);
+
+    try {
+      fireEvent.click(screen.getByRole("button", { name: /Run Coverage Matching/i }));
+
+      await waitFor(() => {
+        expect(triggerCoverage).toHaveBeenCalledTimes(1);
+        expect(screen.getByText(/Coverage data updated\./i)).toBeInTheDocument();
+        expect(screen.getByText(/Last run:/i)).toBeInTheDocument();
+      });
+    } finally {
+      view.unmount();
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
     }
   });
 });
