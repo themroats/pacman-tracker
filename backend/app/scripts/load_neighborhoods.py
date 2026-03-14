@@ -19,6 +19,8 @@ import osmnx as ox
 from shapely.geometry import MultiPoint, MultiPolygon, Polygon, Point
 from shapely.ops import voronoi_diagram
 from sqlalchemy import text, func as sqlfunc
+from collections.abc import Callable
+
 from sqlalchemy.orm import Session
 
 from app.database import create_db_engine, get_session_factory
@@ -137,8 +139,18 @@ def _voronoi_neighborhoods(
     return results
 
 
-def load_neighborhoods_for_city(session: Session, city: City) -> int:
-    """Load neighborhoods for a city and assign streets. Returns count."""
+def load_neighborhoods_for_city(
+    session: Session,
+    city: City,
+    *,
+    commit_every: int = 10,
+    progress_callback: Callable[[dict[str, int]], None] | None = None,
+) -> dict[str, int]:
+    """Load neighborhoods for a city and assign streets.
+
+    Commits progress in batches to avoid holding SQLite writer locks for the
+    entire neighborhood assignment run.
+    """
     city_name = city.name
     state = city.state or ""
     print(f"\n--- Loading neighborhoods for {city_name}, {state} ---")
@@ -147,7 +159,13 @@ def load_neighborhoods_for_city(session: Session, city: City) -> int:
     existing = session.query(Neighborhood).filter_by(city_id=city.id).count()
     if existing > 0:
         print(f"  {existing} neighborhoods already exist. Skipping.")
-        return existing
+        return {
+            "loaded": existing,
+            "total": existing,
+            "processed": existing,
+            "assigned": 0,
+            "unassigned": 0,
+        }
 
     # Get city boundary as Shapely
     from geoalchemy2.shape import to_shape
@@ -157,13 +175,13 @@ def load_neighborhoods_for_city(session: Session, city: City) -> int:
     features = _fetch_neighborhood_points(city_name, state)
     if not features:
         print("  No neighborhood data found in OSM.")
-        return 0
+        return {"loaded": 0, "total": 0, "processed": 0, "assigned": 0, "unassigned": 0}
 
     # Create Voronoi polygons
     neighborhoods = _voronoi_neighborhoods(features, city_boundary)
     if not neighborhoods:
         print("  Failed to create neighborhood polygons.")
-        return 0
+        return {"loaded": 0, "total": 0, "processed": 0, "assigned": 0, "unassigned": 0}
 
     # Insert Neighborhood records
     print(f"  Inserting {len(neighborhoods)} neighborhoods...")
@@ -180,7 +198,20 @@ def load_neighborhoods_for_city(session: Session, city: City) -> int:
         neighborhood_objs.append(obj)
 
     session.flush()  # Get IDs
+    session.commit()
     print(f"  Inserted {len(neighborhood_objs)} neighborhoods")
+
+    total_neighborhoods = len(neighborhood_objs)
+    if progress_callback:
+        progress_callback(
+            {
+                "loaded": total_neighborhoods,
+                "total": total_neighborhoods,
+                "processed": 0,
+                "assigned": 0,
+                "unassigned": 0,
+            }
+        )
 
     # Assign streets to neighborhoods using SpatiaLite R-tree spatial index
     print("  Assigning streets to neighborhoods (R-tree + ST_Within)...")
@@ -227,7 +258,22 @@ def load_neighborhoods_for_city(session: Session, city: City) -> int:
         if (i % 20 == 0) or i == len(neighborhood_objs):
             print(f"    [{i}/{len(neighborhood_objs)}] assigned {assigned} streets so far...")
 
+        if progress_callback:
+            progress_callback(
+                {
+                    "loaded": total_neighborhoods,
+                    "total": total_neighborhoods,
+                    "processed": i,
+                    "assigned": assigned,
+                    "unassigned": 0,
+                }
+            )
+
+        if i % commit_every == 0:
+            session.commit()
+
     session.flush()
+    session.commit()
 
     # Count unassigned streets
     unassigned = (
@@ -240,7 +286,16 @@ def load_neighborhoods_for_city(session: Session, city: City) -> int:
     if unassigned > 0:
         print(f"  {unassigned} streets remain unassigned (outside all neighborhood boundaries)")
 
-    return len(neighborhood_objs)
+    result = {
+        "loaded": total_neighborhoods,
+        "total": total_neighborhoods,
+        "processed": total_neighborhoods,
+        "assigned": assigned,
+        "unassigned": unassigned,
+    }
+    if progress_callback:
+        progress_callback(result)
+    return result
 
 
 def main(target_city: str | None = None) -> None:
@@ -260,8 +315,8 @@ def main(target_city: str | None = None) -> None:
 
         total = 0
         for city in cities:
-            count = load_neighborhoods_for_city(session, city)
-            total += count
+            result = load_neighborhoods_for_city(session, city)
+            total += result["loaded"]
 
         session.commit()
         print(f"\nDone. Loaded {total} neighborhoods total.")
