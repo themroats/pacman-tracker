@@ -84,6 +84,22 @@ python -m app.scripts.load_cities
 uvicorn app.main:app --reload --port 8000
 ```
 
+### 2a. Local Docker backend helper
+
+If you want to clear out the old local backend container, rebuild the image, and run it again with the existing env file and data volume, use:
+
+```powershell
+.\infra\run-local-backend.ps1 -Detach
+```
+
+Useful options:
+
+```powershell
+.\infra\run-local-backend.ps1 -RemoveImage -PruneDangling -Detach
+```
+
+When the backend runs in Docker and OSRM runs on the host machine, set `OSRM_URL=http://host.docker.internal:5000` in `backend/.env`. If you run the backend directly on the host, `http://localhost:5000` is still the right value.
+
 ### 3. Frontend setup
 
 ```bash
@@ -107,6 +123,9 @@ docker compose up osrm                              # Start routing server on :5
 pacman-tracker/
 ├── README.md                 ← You are here
 ├── docker-compose.yml        ← OSRM routing server
+├── infra/
+│   ├── deploy-prod.ps1       ← Production deployment helper
+│   └── run-local-backend.ps1 ← Local Docker cleanup + rebuild + run helper
 ├── backend/
 │   ├── README.md             ← Backend-specific docs
 │   ├── .env.example          ← Environment variable template

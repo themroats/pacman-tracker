@@ -56,6 +56,22 @@ python -m app.scripts.load_cities   # Download street data for launch cities (~5
 uvicorn app.main:app --reload --port 8000
 ```
 
+### 4a. Start the backend in local Docker
+
+From the repo root, you can use the helper script to remove the old local backend container, rebuild the image, and start it again:
+
+```powershell
+.\infra\run-local-backend.ps1 -Detach
+```
+
+For a more aggressive cleanup before rebuild:
+
+```powershell
+.\infra\run-local-backend.ps1 -RemoveImage -PruneDangling -Detach
+```
+
+If the backend is running in Docker and your OSRM server is running on the host, `OSRM_URL` in `.env` should be `http://host.docker.internal:5000`. `http://localhost:5000` only works when the backend is also running directly on the host.
+
 - API: http://localhost:8000/api/v1
 - OpenAPI docs: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
