@@ -50,6 +50,62 @@ async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
             await asyncio.sleep(wait)
 
 
+def _process_phase_b_activity(
+    user_id: int,
+    activity_id: int,
+    streams: dict[str, Any],
+) -> dict[str, int]:
+    """Run the synchronous phase-B DB and coverage work in a worker thread."""
+    from app.database import get_session_factory
+    from app.services.coverage import classify_activity_on_street, run_coverage_matching
+
+    session = get_session_factory()()
+    try:
+        activity = session.get(Activity, activity_id)
+        if activity is None:
+            return {"processed": 0, "failed": 1, "matched": 0}
+
+        latlng_data = streams.get("latlng", {}).get("data", [])
+        gps_line = None
+
+        if latlng_data and len(latlng_data) >= 2:
+            coords = [(lng, lat) for lat, lng in latlng_data]
+            gps_line = LineString(coords)
+            activity.gps_trace = f"SRID=4326;{gps_line.wkt}"
+            activity.has_gps = True
+            _check_gps_quality(activity, latlng_data)
+        else:
+            activity.has_gps = False
+
+        activity.import_status = "streams_imported"
+        matched = 0
+
+        if activity.has_gps and gps_line is not None:
+            try:
+                overall_ratio = run_coverage_matching(
+                    db=session,
+                    user_id=user_id,
+                    activity_id=activity.id,
+                    gps_trace=gps_line,
+                    city_id=activity.city_id,
+                )
+
+                activity.is_on_street = classify_activity_on_street(overall_ratio)
+                activity.import_status = "matched"
+                matched = 1
+            except Exception:
+                # Coverage matching failure should not block the import.
+                pass
+
+        session.commit()
+        return {"processed": 1, "failed": 0, "matched": matched}
+    except Exception:
+        session.rollback()
+        return {"processed": 0, "failed": 1, "matched": 0}
+    finally:
+        session.close()
+
+
 class ActivityImporter:
     """Manages the two-phase activity import pipeline."""
 
@@ -192,49 +248,15 @@ class ActivityImporter:
                 streams = await self.strava.fetch_activity_streams(
                     access_token, activity.strava_activity_id
                 )
-
-                latlng_data = streams.get("latlng", {}).get("data", [])
-                if latlng_data and len(latlng_data) >= 2:
-                    # Convert lat/lng to lng/lat for GeoJSON standard
-                    coords = [(lng, lat) for lat, lng in latlng_data]
-                    linestring = LineString(coords)
-                    activity.gps_trace = f"SRID=4326;{linestring.wkt}"
-                    activity.has_gps = True
-
-                    # T078: GPS quality detection — flag activities with large gaps
-                    _check_gps_quality(activity, latlng_data)
-                else:
-                    activity.has_gps = False
-
-                activity.import_status = "streams_imported"
-                processed += 1
-
-                # --- Coverage matching (T045) ---
-                if activity.has_gps and latlng_data and len(latlng_data) >= 2:
-                    try:
-                        from app.services.coverage import (
-                            classify_activity_on_street,
-                            run_coverage_matching,
-                        )
-
-                        coords_for_matching = [(lng, lat) for lat, lng in latlng_data]
-                        gps_line = LineString(coords_for_matching)
-
-                        overall_ratio = run_coverage_matching(
-                            db=self.db,
-                            user_id=user_id,
-                            activity_id=activity.id,
-                            gps_trace=gps_line,
-                            city_id=activity.city_id,
-                        )
-
-                        # Classify on-street vs off-road (T099)
-                        activity.is_on_street = classify_activity_on_street(overall_ratio)
-                        activity.import_status = "matched"
-                        matched += 1
-                    except Exception:
-                        # Coverage matching failure should not block the import
-                        pass
+                result = await asyncio.to_thread(
+                    _process_phase_b_activity,
+                    user_id,
+                    activity.id,
+                    streams,
+                )
+                processed += result["processed"]
+                failed += result["failed"]
+                matched += result["matched"]
 
             except RateLimitError:
                 # Re-raise rate limits to let caller handle
@@ -242,9 +264,6 @@ class ActivityImporter:
             except Exception:
                 failed += 1
                 continue
-
-        if processed > 0:
-            self.db.flush()
 
         return {"processed": processed, "failed": failed, "matched": matched}
 

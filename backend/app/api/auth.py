@@ -25,7 +25,8 @@ from app.main import AppError
 from app.models.user import User
 from app.schemas.user import AuthCallbackResponse, LogoutResponse
 from app.services.crypto import encrypt_token
-from app.services.strava import StravaOAuthService
+from app.services.strava import StravaAPIError, StravaOAuthService, TokenRevokedError
+from app.services.sync_runtime import mark_sync_finished, mark_sync_started
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,10 @@ async def strava_callback(
     service = StravaOAuthService()
     try:
         token_data = await service.exchange_code(code)
+    except StravaAPIError as e:
+        raise AppError("STRAVA_UNAVAILABLE", f"Failed to exchange code: {e.message}", 503)
+    except TokenRevokedError as e:
+        raise AppError("STRAVA_UNAVAILABLE", f"Failed to exchange code: {e}", 503)
     except Exception as e:
         raise AppError("STRAVA_UNAVAILABLE", f"Failed to exchange code: {e}", 503)
 
@@ -144,6 +149,7 @@ async def strava_callback(
 
     # Kick off background import if user is in "importing" state
     if user.sync_status == "importing":
+        mark_sync_started(user.id)
         background_tasks.add_task(_run_background_import, user.id, token_data["access_token"])
 
     return AuthCallbackResponse(
@@ -187,6 +193,7 @@ async def _run_background_import(user_id: int, access_token: str):
         except Exception:
             session.rollback()
     finally:
+        mark_sync_finished(user_id)
         session.close()
 
 
