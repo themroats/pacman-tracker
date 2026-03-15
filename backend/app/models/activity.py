@@ -52,7 +52,10 @@ class Activity(Base):
     # Relationships
     user = relationship("User", back_populates="activities")
 
-    VALID_IMPORT_STATUSES = {"pending", "polyline_imported", "streams_imported", "matched"}
+    VALID_IMPORT_STATUSES = {
+        "pending", "polyline_imported", "streams_imported", "matched",
+        "error", "gps_quality_warning",
+    }
 
     @property
     def pace_min_per_km(self) -> float | None:
