@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 from app.api.deps import get_current_user as _get_current_user
 
 
-def _serialize_neighborhood_boundary(db: Session, user_id: int, neighborhood: Neighborhood) -> dict:
-    from app.api.coverage import _neighborhood_coverage
-
-    cov = _neighborhood_coverage(db, user_id, neighborhood)
+def _serialize_neighborhood_boundary(db: Session, user_id: int, neighborhood: Neighborhood, coverage_pct: float | None = None) -> dict:
+    if coverage_pct is None:
+        from app.api.coverage import _neighborhood_coverage
+        cov = _neighborhood_coverage(db, user_id, neighborhood)
+        coverage_pct = cov["coverage_percentage"]
 
     try:
         boundary_shape = to_shape(neighborhood.boundary)
@@ -70,7 +71,7 @@ def _serialize_neighborhood_boundary(db: Session, user_id: int, neighborhood: Ne
         "properties": {
             "id": neighborhood.id,
             "name": neighborhood.name,
-            "coverage_percentage": cov["coverage_percentage"],
+            "coverage_percentage": coverage_pct,
         },
         "geometry": geom_json,
     }
@@ -113,7 +114,10 @@ async def list_neighborhoods(
     user: User = Depends(_get_current_user),
 ):
     """List neighborhoods for a city, with coverage percentages."""
-    from app.api.coverage import _neighborhood_coverage
+    from sqlalchemy import and_, case, func, literal_column
+
+    from app.models.coverage import UserStreetCoverage
+    from app.models.street import StreetSegment
 
     city = db.get(City, city_id)
     if not city:
@@ -126,15 +130,43 @@ async def list_neighborhoods(
         .all()
     )
 
+    # Batched coverage query — single GROUP BY instead of N+1
+    neighborhood_ids = [n.id for n in neighborhoods]
+    coverage_rows = {}
+    if neighborhood_ids:
+        rows = (
+            db.query(
+                StreetSegment.neighborhood_id,
+                func.count(StreetSegment.id).label("total"),
+                func.count(UserStreetCoverage.id).label("traveled"),
+            )
+            .outerjoin(
+                UserStreetCoverage,
+                and_(
+                    UserStreetCoverage.street_segment_id == StreetSegment.id,
+                    UserStreetCoverage.user_id == user.id,
+                    UserStreetCoverage.is_traveled == True,
+                ),
+            )
+            .filter(StreetSegment.neighborhood_id.in_(neighborhood_ids))
+            .group_by(StreetSegment.neighborhood_id)
+            .all()
+        )
+        for row in rows:
+            coverage_rows[row[0]] = row
+
     result = []
     for n in neighborhoods:
-        cov = _neighborhood_coverage(db, user.id, n)
+        row = coverage_rows.get(n.id)
+        total = n.total_street_segments or (row.total if row else 0)
+        traveled = row.traveled if row else 0
+        pct = (traveled / total * 100) if total else 0.0
         result.append(
             {
-                "id": cov["id"],
-                "name": cov["name"],
-                "total_street_segments": cov["streets_total"],
-                "coverage_percentage": cov["coverage_percentage"],
+                "id": n.id,
+                "name": n.name,
+                "total_street_segments": total,
+                "coverage_percentage": round(pct, 1),
             }
         )
 
@@ -167,6 +199,11 @@ async def neighborhood_boundaries(
     user: User = Depends(_get_current_user),
 ):
     """Neighborhood boundaries for a city as a GeoJSON FeatureCollection."""
+    from sqlalchemy import and_, func
+
+    from app.models.coverage import UserStreetCoverage
+    from app.models.street import StreetSegment
+
     city = db.get(City, city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {city_id} not found", 404)
@@ -178,10 +215,39 @@ async def neighborhood_boundaries(
         .all()
     )
 
+    # Batched coverage for all neighborhoods
+    neighborhood_ids = [n.id for n in neighborhoods]
+    coverage_map: dict[int, float] = {}
+    if neighborhood_ids:
+        rows = (
+            db.query(
+                StreetSegment.neighborhood_id,
+                func.count(StreetSegment.id).label("total"),
+                func.count(UserStreetCoverage.id).label("traveled"),
+            )
+            .outerjoin(
+                UserStreetCoverage,
+                and_(
+                    UserStreetCoverage.street_segment_id == StreetSegment.id,
+                    UserStreetCoverage.user_id == user.id,
+                    UserStreetCoverage.is_traveled == True,
+                ),
+            )
+            .filter(StreetSegment.neighborhood_id.in_(neighborhood_ids))
+            .group_by(StreetSegment.neighborhood_id)
+            .all()
+        )
+        for row in rows:
+            total = row.total
+            pct = (row.traveled / total * 100) if total else 0.0
+            coverage_map[row[0]] = round(pct, 1)
+
     return {
         "type": "FeatureCollection",
         "features": [
-            _serialize_neighborhood_boundary(db, user.id, neighborhood)
-            for neighborhood in neighborhoods
+            _serialize_neighborhood_boundary(
+                db, user.id, n, coverage_pct=coverage_map.get(n.id, 0.0)
+            )
+            for n in neighborhoods
         ],
     }
