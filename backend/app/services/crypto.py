@@ -40,6 +40,13 @@ def decrypt_token(cipher_text: str) -> str:
     return f.decrypt(cipher_text.encode()).decode()
 
 
+def compute_token_hash(plain_text: str) -> str:
+    """Return a SHA-256 hex digest of *plain_text* for O(1) indexed lookup."""
+    import hashlib
+
+    return hashlib.sha256(plain_text.encode()).hexdigest()
+
+
 def reset_fernet() -> None:
     """Reset the cached Fernet instance (for testing)."""
     global _fernet
