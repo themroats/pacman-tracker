@@ -101,18 +101,22 @@ export interface AppState
 export const useAppStore = create<AppState>((set, get) => ({
   // --- Auth ---
   isAuthenticated: !!localStorage.getItem("access_token"),
-  userId: null,
-  displayName: null,
+  userId: JSON.parse(localStorage.getItem("user_id") || "null"),
+  displayName: localStorage.getItem("display_name"),
   accessToken: localStorage.getItem("access_token"),
   syncStatus: null,
 
   login: (userId, displayName, accessToken) => {
     localStorage.setItem("access_token", accessToken);
+    localStorage.setItem("user_id", JSON.stringify(userId));
+    localStorage.setItem("display_name", displayName);
     set({ isAuthenticated: true, userId, displayName, accessToken });
   },
 
   logout: () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("display_name");
     set({
       isAuthenticated: false,
       userId: null,
