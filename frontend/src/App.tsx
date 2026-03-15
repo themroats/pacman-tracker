@@ -4,6 +4,8 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/Layout/AppLayout";
+import ToastContainer from "@/components/common/ToastContainer";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/HomePage";
 import MapPage from "@/pages/MapPage";
 import CoveragePage from "@/pages/CoveragePage";
@@ -13,22 +15,26 @@ import AuthCallbackPage from "@/pages/AuthCallbackPage";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Auth callback — no layout */}
-        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+    <>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Routes>
+            {/* Auth callback — no layout */}
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
-        {/* All other pages share the NavBar layout */}
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="/coverage" element={<CoveragePage />} />
-          <Route path="/route" element={<RoutePage />} />
-          <Route path="/progress" element={<ProgressPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            {/* All other pages share the NavBar layout */}
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/map" element={<MapPage />} />
+              <Route path="/coverage" element={<CoveragePage />} />
+              <Route path="/route" element={<RoutePage />} />
+              <Route path="/progress" element={<ProgressPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ErrorBoundary>
+      <ToastContainer />
+    </>
   );
 }
-
 export default App;

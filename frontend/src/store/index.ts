@@ -41,10 +41,18 @@ export interface CoverageSlice {
   cityCoveragePercentage: number | null;
 }
 
+export interface Toast {
+  id: string;
+  message: string;
+  type: "error" | "warning" | "success" | "info";
+  createdAt: number;
+}
+
 export interface UISlice {
   isLoading: boolean;
   error: string | null;
   syncStatus: SyncStatusResponse | null;
+  toasts: Toast[];
 }
 
 export interface CitySlice {
@@ -82,13 +90,15 @@ export interface AppState
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSyncStatus: (status: SyncStatusResponse | null) => void;
+  addToast: (message: string, type?: Toast["type"]) => void;
+  removeToast: (id: string) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   // --- Auth ---
   isAuthenticated: !!localStorage.getItem("access_token"),
   userId: null,
@@ -148,8 +158,22 @@ export const useAppStore = create<AppState>((set) => ({
   // --- UI ---
   isLoading: false,
   error: null,
+  toasts: [],
 
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setSyncStatus: (status) => set({ syncStatus: status }),
+  addToast: (message, type = "error") => {
+    // Deduplicate: skip if an identical message is already showing
+    const existing = get().toasts;
+    if (existing.some((t) => t.message === message && t.type === type)) return;
+
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    set((state) => ({ toasts: [...state.toasts, { id, message, type, createdAt: Date.now() }] }));
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 5000);
+  },
+  removeToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
 }));

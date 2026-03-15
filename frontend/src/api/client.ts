@@ -27,6 +27,17 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_URL || "/api/v1";
 
 // ---------------------------------------------------------------------------
+// Global error hook — wired to toast notifications by the store
+// ---------------------------------------------------------------------------
+
+let _onApiError: ((error: ApiClientError) => void) | null = null;
+
+/** Register a global callback invoked on every ApiClientError. */
+export function setApiErrorHandler(handler: (error: ApiClientError) => void) {
+  _onApiError = handler;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -64,12 +75,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       body = await res.json();
     } catch {
-      throw new ApiClientError(
+      const err = new ApiClientError(
         { code: "UNKNOWN", message: res.statusText, details: {} },
         res.status,
       );
+      _onApiError?.(err);
+      throw err;
     }
-    throw new ApiClientError(body.error, res.status);
+    const err = new ApiClientError(body.error, res.status);
+    _onApiError?.(err);
+    throw err;
   }
 
   // 204 No Content
