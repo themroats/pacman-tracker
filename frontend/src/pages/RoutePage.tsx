@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";
@@ -34,9 +35,16 @@ interface RouteInfo {
 }
 
 export default function RoutePage() {
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const navigate = useNavigate();
   const neighborhoods = useAppStore((s) => s.neighborhoods);
   const setNeighborhoods = useAppStore((s) => s.setNeighborhoods);
   const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) navigate("/");
+  }, [isAuthenticated, navigate]);
 
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [segments, setSegments] = useState<RouteSegment[]>([]);

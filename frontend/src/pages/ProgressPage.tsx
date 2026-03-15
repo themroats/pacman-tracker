@@ -5,11 +5,13 @@
  */
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import TimelineChart from "@/components/ProgressTimeline/TimelineChart";
 import MilestoneList from "@/components/ProgressTimeline/MilestoneList";
 import StatsOverview from "@/components/ProgressTimeline/StatsOverview";
 import { progressApi } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
+import { useAppStore } from "@/store";
 import type {
   OverallStatsResponse,
   Milestone,
@@ -17,7 +19,14 @@ import type {
 } from "@/types/api";
 
 export default function ProgressPage() {
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const navigate = useNavigate();
   const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) navigate("/");
+  }, [isAuthenticated, navigate]);
 
   const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
