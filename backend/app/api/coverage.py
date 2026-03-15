@@ -165,7 +165,7 @@ def _streets_geojson(
 
 
 @router.get("/city/{city_id}")
-async def city_coverage(
+def city_coverage(
     city_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
@@ -256,7 +256,7 @@ async def city_coverage(
 
 
 @router.get("/neighborhood/{neighborhood_id}")
-async def neighborhood_detail(
+def neighborhood_detail(
     neighborhood_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
@@ -300,7 +300,7 @@ async def neighborhood_detail(
 
 
 @router.get("/neighborhood/{neighborhood_id}/streets")
-async def neighborhood_streets(
+def neighborhood_streets(
     neighborhood_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
@@ -318,7 +318,7 @@ async def neighborhood_streets(
 
 
 @router.get("/city/{city_id}/streets")
-async def city_streets(
+def city_streets(
     city_id: int = Path(gt=0),
     neighborhood_id: int | None = Query(None),
     status: str | None = Query(None),

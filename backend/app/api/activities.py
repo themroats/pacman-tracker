@@ -54,10 +54,15 @@ def _activity_to_summary(act: Activity) -> ActivitySummary:
     )
 
 
-def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
-    """Convert an Activity to a GeoJSON Feature."""
+def _activity_to_geojson_feature(act: Activity, lightweight: bool = False) -> ActivityGeoJSONFeature:
+    """Convert an Activity to a GeoJSON Feature.
+
+    When *lightweight* is True, skip expensive gps_trace deserialization and
+    use summary_polyline only. This is much faster for large result sets.
+    """
     geometry = None
-    if act.gps_trace is not None:
+
+    if not lightweight and act.gps_trace is not None:
         try:
             shape = to_shape(act.gps_trace)
             geometry = {
@@ -67,7 +72,7 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
         except Exception:
             logger.warning("Failed to convert gps_trace for activity %d", act.id)
 
-    # Fallback: decode summary_polyline when gps_trace geometry is missing
+    # Fallback (or primary path in lightweight mode): decode summary_polyline
     if geometry is None and act.summary_polyline:
         try:
             coords = polyline_codec.decode(act.summary_polyline)
@@ -92,7 +97,7 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
 
 
 @router.get("", response_model=ActivityListResponse)
-async def list_activities(
+def list_activities(
     sport_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
@@ -137,7 +142,7 @@ async def list_activities(
 
 
 @router.get("/geojson")
-async def activities_geojson(
+def activities_geojson(
     sport_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
@@ -162,13 +167,17 @@ async def activities_geojson(
 
     activities = query.order_by(Activity.start_date.desc()).all()
 
+    # Use lightweight mode (summary polylines only) when result set is large
+    # to avoid expensive gps_trace geometry deserialization
+    lightweight = len(activities) > 200
+
     return ActivityGeoJSONCollection(
-        features=[_activity_to_geojson_feature(a) for a in activities],
+        features=[_activity_to_geojson_feature(a, lightweight=lightweight) for a in activities],
     )
 
 
 @router.get("/{activity_id}")
-async def get_activity(
+def get_activity(
     activity_id: int,
     db: Session = Depends(get_db),
 ):
@@ -204,7 +213,7 @@ async def get_activity(
 
 
 @router.get("/{activity_id}/geojson")
-async def activity_geojson(
+def activity_geojson(
     activity_id: int,
     db: Session = Depends(get_db),
 ):

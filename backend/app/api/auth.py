@@ -81,7 +81,7 @@ def _validate_state_token(token: str, max_age_seconds: int = 900) -> bool:
 
 
 @router.get("/strava")
-async def strava_login():
+def strava_login():
     """Redirect user to Strava OAuth authorization page."""
     service = StravaOAuthService()
     state = _issue_state_token()
@@ -200,6 +200,6 @@ async def _run_background_import(user_id: int, access_token: str):
 
 
 @router.post("/logout", response_model=LogoutResponse)
-async def logout():
+def logout():
     """End user session."""
     return LogoutResponse(message="Logged out")

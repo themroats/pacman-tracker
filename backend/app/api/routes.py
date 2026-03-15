@@ -86,7 +86,7 @@ async def suggest_route(
 
 
 @router.get("/history")
-async def route_history(
+def route_history(
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):

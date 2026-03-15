@@ -33,7 +33,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 
 @router.get("/status", response_model=SyncStatusResponse)
-async def sync_status(
+def sync_status(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
