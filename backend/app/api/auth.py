@@ -24,7 +24,7 @@ from app.database import get_db
 from app.main import AppError
 from app.models.user import User
 from app.schemas.user import AuthCallbackResponse, LogoutResponse
-from app.services.crypto import encrypt_token
+from app.services.crypto import compute_token_hash, encrypt_token
 from app.services.strava import StravaAPIError, StravaOAuthService, TokenRevokedError
 from app.services.sync_runtime import mark_sync_finished, mark_sync_started
 
@@ -126,6 +126,7 @@ async def strava_callback(
             display_name=token_data["display_name"],
             profile_image_url=token_data.get("profile_image_url"),
             access_token_encrypted=encrypt_token(token_data["access_token"]),
+            access_token_hash=compute_token_hash(token_data["access_token"]),
             refresh_token_encrypted=encrypt_token(token_data["refresh_token"]),
             token_expires_at=token_data["expires_at"],
             strava_scope=scope,
@@ -136,6 +137,7 @@ async def strava_callback(
     else:
         # Update tokens
         user.access_token_encrypted = encrypt_token(token_data["access_token"])
+        user.access_token_hash = compute_token_hash(token_data["access_token"])
         user.refresh_token_encrypted = encrypt_token(token_data["refresh_token"])
         user.token_expires_at = token_data["expires_at"]
         user.strava_scope = scope
