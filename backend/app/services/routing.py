@@ -11,7 +11,9 @@ Routing service — OSRM client + route suggestion algorithm (T056-T058).
 
 from __future__ import annotations
 
+import logging
 import random
+import time
 from typing import Any
 
 import httpx
@@ -24,6 +26,38 @@ from app.config import get_settings
 
 class OSRMUnavailableError(Exception):
     """Raised when the OSRM server cannot be reached."""
+
+
+# ---------------------------------------------------------------------------
+# OSRM Health Check
+# ---------------------------------------------------------------------------
+
+_osrm_available: bool | None = None
+_osrm_checked_at: float = 0.0
+_OSRM_CHECK_INTERVAL = 60  # seconds
+
+_logger = logging.getLogger(__name__)
+
+
+async def check_osrm_available(force: bool = False) -> bool:
+    """Ping OSRM and cache the result for 60 seconds."""
+    global _osrm_available, _osrm_checked_at
+    now = time.monotonic()
+    if not force and _osrm_available is not None and (now - _osrm_checked_at) < _OSRM_CHECK_INTERVAL:
+        return _osrm_available
+
+    try:
+        settings = get_settings()
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(f"{settings.osrm_url.rstrip('/')}/nearest/v1/foot/0,0.json")
+            # OSRM returns 200 even for invalid coords; a connection success means it's up
+            _osrm_available = resp.status_code < 500
+    except Exception:
+        _osrm_available = False
+        _logger.warning("OSRM health check failed — route suggestions will be unavailable")
+
+    _osrm_checked_at = now
+    return _osrm_available
 
 
 # ---------------------------------------------------------------------------

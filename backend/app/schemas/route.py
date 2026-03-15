@@ -5,11 +5,16 @@ Pydantic schemas for Route Suggestions (US3, T055).
 from pydantic import BaseModel, Field
 
 
+class StartPoint(BaseModel):
+    lng: float = Field(..., ge=-180, le=180)
+    lat: float = Field(..., ge=-90, le=90)
+
+
 class RouteSuggestRequest(BaseModel):
-    start_point: dict = Field(..., description='{"lng": float, "lat": float}')
-    distance_meters: float = Field(..., gt=0)
-    city_id: int
-    neighborhood_id: int | None = None
+    start_point: StartPoint
+    distance_meters: float = Field(..., gt=0, le=50000)
+    city_id: int = Field(..., gt=0)
+    neighborhood_id: int | None = Field(None, gt=0)
 
 
 class RouteGeometry(BaseModel):

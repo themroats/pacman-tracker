@@ -10,7 +10,9 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header
+import logging
+
+from fastapi import APIRouter, Depends, Header, Path
 from geoalchemy2.shape import to_shape
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,8 @@ from app.services.city_bootstrap import (
 )
 
 router = APIRouter(prefix="/cities", tags=["cities"])
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +62,7 @@ def _serialize_neighborhood_boundary(db: Session, user_id: int, neighborhood: Ne
                 ),
             }
     except Exception:
+        logger.warning("Failed to serialize boundary for neighborhood %d", neighborhood.id)
         geom_json = {}
 
     return {
@@ -103,7 +108,7 @@ async def list_cities(db: Session = Depends(get_db)):
 
 @router.get("/{city_id}/neighborhoods")
 async def list_neighborhoods(
-    city_id: int,
+    city_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):
@@ -138,8 +143,8 @@ async def list_neighborhoods(
 
 @router.get("/{city_id}/neighborhoods/{neighborhood_id}/boundary")
 async def neighborhood_boundary(
-    city_id: int,
-    neighborhood_id: int,
+    city_id: int = Path(gt=0),
+    neighborhood_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):
@@ -157,7 +162,7 @@ async def neighborhood_boundary(
 
 @router.get("/{city_id}/neighborhoods/boundaries")
 async def neighborhood_boundaries(
-    city_id: int,
+    city_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):

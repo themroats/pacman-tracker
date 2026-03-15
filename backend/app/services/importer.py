@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from shapely.geometry import LineString
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
@@ -94,8 +95,12 @@ def _process_phase_b_activity(
                 activity.import_status = "matched"
                 matched = 1
             except Exception:
-                # Coverage matching failure should not block the import.
-                pass
+                logger.exception(
+                    "Coverage matching failed for activity %d (user %d)",
+                    activity.id,
+                    user_id,
+                )
+                activity.import_status = "error"
 
         session.commit()
         return {"processed": 1, "failed": 0, "matched": matched}
@@ -188,7 +193,10 @@ class ActivityImporter:
                             line = ShapelyLineString([(lng, lat) for lat, lng in coords])
                             gps_trace_wkb = from_shape(line, srid=4326)
                     except Exception:
-                        pass
+                        logger.warning(
+                            "Failed to decode polyline for strava activity %d",
+                            strava_id,
+                        )
 
                 activity = Activity(
                     user_id=user_id,
@@ -214,7 +222,14 @@ class ActivityImporter:
             page += 1
 
         if imported > 0:
-            self.db.flush()
+            try:
+                self.db.flush()
+            except IntegrityError:
+                self.db.rollback()
+                logger.warning(
+                    "IntegrityError during flush for user %d — likely duplicate activities, skipping",
+                    user_id,
+                )
 
         return {"imported": imported, "skipped": skipped, "total": imported + skipped}
 
@@ -328,3 +343,4 @@ def _check_gps_quality(activity: Activity, latlng_data: list[list[float]]) -> No
         )
         # Don't override an already better status — just add metadata info
         # The activity can still be processed but users should be warned
+        activity.import_status = "gps_quality_warning"

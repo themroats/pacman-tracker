@@ -48,16 +48,20 @@ async def suggest_route(
     user: User = Depends(_get_current_user),
 ):
     """Generate a route suggestion prioritising untraveled streets."""
+    # Check OSRM availability
+    from app.services.routing import check_osrm_available
+
+    if not await check_osrm_available():
+        raise AppError("OSRM_UNAVAILABLE", "Route suggestions are temporarily unavailable", 503)
+
     # Validate city
     city = db.get(City, body.city_id)
     if not city:
         raise AppError("NOT_FOUND", f"City {body.city_id} not found", 404)
 
-    # Validate start point
-    lng = body.start_point.get("lng")
-    lat = body.start_point.get("lat")
-    if lng is None or lat is None:
-        raise AppError("VALIDATION_ERROR", "start_point must have lng and lat", 400)
+    # Extract validated start point
+    lng = body.start_point.lng
+    lat = body.start_point.lat
 
     # Delegate to service
     planner = RoutePlannerService(db)
