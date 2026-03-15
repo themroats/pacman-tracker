@@ -20,6 +20,9 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    access_token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=True, index=True
+    )
     refresh_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     token_expires_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     strava_scope: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -27,6 +30,7 @@ class User(Base):
         Integer, nullable=True  # FK added after City model is defined
     )
     last_sync_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    sync_started_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     sync_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="idle"
     )
@@ -40,7 +44,27 @@ class User(Base):
     # Relationships
     activities = relationship("Activity", back_populates="user", lazy="dynamic")
 
-    VALID_SYNC_STATUSES = {"idle", "importing", "syncing", "error", "revoked"}
+    VALID_SYNC_STATUSES = {"idle", "importing", "syncing", "complete", "error", "revoked"}
+
+    SYNC_TRANSITIONS: dict[str, set[str]] = {
+        "idle": {"syncing"},
+        "syncing": {"complete", "error", "revoked"},
+        "complete": {"idle"},
+        "error": {"idle", "syncing"},
+        "revoked": {"idle"},
+        # Legacy — treated like syncing for recovery purposes
+        "importing": {"complete", "error", "revoked"},
+    }
+
+    def transition_sync_status(self, new_status: str) -> None:
+        """Transition sync_status to *new_status*, raising on invalid moves."""
+        allowed = self.SYNC_TRANSITIONS.get(self.sync_status, set())
+        if new_status not in allowed:
+            raise ValueError(
+                f"Invalid sync transition: {self.sync_status!r} → {new_status!r} "
+                f"(allowed: {sorted(allowed)})"
+            )
+        self.sync_status = new_status
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, strava_athlete_id={self.strava_athlete_id}, name={self.display_name!r})>"
