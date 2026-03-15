@@ -25,6 +25,7 @@ from app.services.sync_runtime import (
     mark_sync_started,
     recover_stale_sync_status,
 )
+from app.services.strava import TokenRevokedError
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,12 @@ async def sync_status(
 ):
     """Get current sync status for the authenticated user."""
     stale_error_message = recover_stale_sync_status(db, user)
+
+    # Auto-transition: "complete" is transient — reset to "idle" on first observation
+    status_to_return = user.sync_status
+    if user.sync_status == "complete":
+        user.sync_status = "idle"
+        db.commit()
 
     total = db.query(Activity).filter_by(user_id=user.id).count()
     imported = (
@@ -55,7 +62,7 @@ async def sync_status(
     )
 
     return SyncStatusResponse(
-        status=user.sync_status,
+        status=status_to_return,
         total_activities=total,
         imported_activities=imported,
         matched_activities=matched,
@@ -72,13 +79,15 @@ async def trigger_sync(
     """Manually trigger an incremental sync of new Strava activities."""
     recover_stale_sync_status(db, user)
 
-    if user.sync_status in ("importing", "syncing"):
-        raise AppError("VALIDATION_ERROR", "Sync already in progress", 400)
+    try:
+        user.transition_sync_status("syncing")
+    except ValueError:
+        raise AppError("SYNC_IN_PROGRESS", "Sync already in progress", 409)
 
     if user.sync_status == "revoked":
-        raise AppError("UNAUTHORIZED", "Strava connection is revoked. Please reconnect.", 401)
+        raise AppError("TOKEN_REVOKED", "Strava connection is revoked. Please reconnect.", 401)
 
-    user.sync_status = "syncing"
+    user.sync_started_at = datetime.datetime.now(datetime.UTC)
     db.commit()
 
     from app.services.crypto import decrypt_token
@@ -148,7 +157,7 @@ async def _run_background_sync(user_id: int, access_token: str):
 
         user = session.get(User, user_id)
         if user:
-            user.sync_status = "idle"
+            user.sync_status = "complete"
             user.last_sync_at = datetime.datetime.now(datetime.UTC)
 
         session.commit()
@@ -157,6 +166,16 @@ async def _run_background_sync(user_id: int, access_token: str):
             user_id,
             result.get("imported", 0),
         )
+    except TokenRevokedError:
+        logger.warning("Token revoked during sync for user %d", user_id)
+        session.rollback()
+        try:
+            user = session.get(User, user_id)
+            if user:
+                user.sync_status = "revoked"
+                session.commit()
+        except Exception:
+            session.rollback()
     except Exception:
         logger.exception("Background sync failed for user %d", user_id)
         session.rollback()
