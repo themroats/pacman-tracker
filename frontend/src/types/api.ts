@@ -231,6 +231,12 @@ export interface NeighborhoodListItem {
   coverage_percentage: number;
 }
 
+export interface NeighborhoodBoundaryProperties {
+  id: number;
+  name: string;
+  coverage_percentage: number;
+}
+
 // ---------------------------------------------------------------------------
 // GeoJSON primitives
 // ---------------------------------------------------------------------------
@@ -258,6 +264,11 @@ export interface GeoJSONFeatureCollection<
   type: "FeatureCollection";
   features: GeoJSONFeature<G, P>[];
 }
+
+export type NeighborhoodBoundaryFeatureCollection = GeoJSONFeatureCollection<
+  GeoJSONPolygon,
+  NeighborhoodBoundaryProperties
+>;
 
 // ---------------------------------------------------------------------------
 // Webhook (server-only, typed for reference)

@@ -4,6 +4,7 @@ Cities API router (T047).
 Endpoints:
 - GET /cities                                            → list all supported cities
 - GET /cities/{city_id}/neighborhoods                    → list neighborhoods
+- GET /cities/{city_id}/neighborhoods/boundaries         → GeoJSON boundaries for all neighborhoods
 - GET /cities/{city_id}/neighborhoods/{neighborhood_id}/boundary → GeoJSON boundary
 """
 
@@ -32,6 +33,42 @@ router = APIRouter(prefix="/cities", tags=["cities"])
 
 
 from app.api.deps import get_current_user as _get_current_user
+
+
+def _serialize_neighborhood_boundary(db: Session, user_id: int, neighborhood: Neighborhood) -> dict:
+    from app.api.coverage import _neighborhood_coverage
+
+    cov = _neighborhood_coverage(db, user_id, neighborhood)
+
+    try:
+        boundary_shape = to_shape(neighborhood.boundary)
+        if boundary_shape.geom_type == "MultiPolygon":
+            poly = list(boundary_shape.geoms)[0]
+            geom_json = {
+                "type": "Polygon",
+                "coordinates": [list(poly.exterior.coords)],
+            }
+        else:
+            geom_json = {
+                "type": boundary_shape.geom_type,
+                "coordinates": (
+                    list(boundary_shape.exterior.coords)
+                    if hasattr(boundary_shape, "exterior")
+                    else []
+                ),
+            }
+    except Exception:
+        geom_json = {}
+
+    return {
+        "type": "Feature",
+        "properties": {
+            "id": neighborhood.id,
+            "name": neighborhood.name,
+            "coverage_percentage": cov["coverage_percentage"],
+        },
+        "geometry": geom_json,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -107,8 +144,6 @@ async def neighborhood_boundary(
     user: User = Depends(_get_current_user),
 ):
     """Neighborhood boundary as a GeoJSON Feature."""
-    from app.api.coverage import _neighborhood_coverage
-
     n = db.query(Neighborhood).filter_by(id=neighborhood_id, city_id=city_id).first()
     if not n:
         raise AppError(
@@ -117,35 +152,31 @@ async def neighborhood_boundary(
             404,
         )
 
-    # Compute coverage for the feature properties
-    cov = _neighborhood_coverage(db, user.id, n)
+    return _serialize_neighborhood_boundary(db, user.id, n)
 
-    try:
-        boundary_shape = to_shape(n.boundary)
-        if boundary_shape.geom_type == "MultiPolygon":
-            poly = list(boundary_shape.geoms)[0]
-            geom_json = {
-                "type": "Polygon",
-                "coordinates": [list(poly.exterior.coords)],
-            }
-        else:
-            geom_json = {
-                "type": boundary_shape.geom_type,
-                "coordinates": (
-                    list(boundary_shape.exterior.coords)
-                    if hasattr(boundary_shape, "exterior")
-                    else []
-                ),
-            }
-    except Exception:
-        geom_json = {}
+
+@router.get("/{city_id}/neighborhoods/boundaries")
+async def neighborhood_boundaries(
+    city_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(_get_current_user),
+):
+    """Neighborhood boundaries for a city as a GeoJSON FeatureCollection."""
+    city = db.get(City, city_id)
+    if not city:
+        raise AppError("NOT_FOUND", f"City {city_id} not found", 404)
+
+    neighborhoods = (
+        db.query(Neighborhood)
+        .filter_by(city_id=city_id)
+        .order_by(Neighborhood.name)
+        .all()
+    )
 
     return {
-        "type": "Feature",
-        "properties": {
-            "id": n.id,
-            "name": n.name,
-            "coverage_percentage": cov["coverage_percentage"],
-        },
-        "geometry": geom_json,
+        "type": "FeatureCollection",
+        "features": [
+            _serialize_neighborhood_boundary(db, user.id, neighborhood)
+            for neighborhood in neighborhoods
+        ],
     }

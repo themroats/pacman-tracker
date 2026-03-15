@@ -4,6 +4,7 @@ Integration tests for the cities API endpoints.
 Tests:
 - GET /cities -> list all cities
 - GET /cities/{id}/neighborhoods -> list neighborhoods with coverage
+- GET /cities/{id}/neighborhoods/boundaries -> GeoJSON boundaries
 - GET /cities/{id}/neighborhoods/{id}/boundary -> GeoJSON boundary
 """
 
@@ -254,4 +255,35 @@ class TestNeighborhoodBoundary:
 
         with TestClient(app) as client:
             resp = client.get(f"/api/v1/cities/{city_id}/neighborhoods/9999/boundary")
+        assert resp.status_code == 404
+
+
+class TestNeighborhoodBoundaries:
+    """GET /cities/{city_id}/neighborhoods/boundaries -- GeoJSON FeatureCollection."""
+
+    def test_returns_feature_collection(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        entities = _seed_data(session)
+        city_id = entities["city"].id
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get(f"/api/v1/cities/{city_id}/neighborhoods/boundaries")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "FeatureCollection"
+        assert len(data["features"]) == 1
+        assert data["features"][0]["properties"]["name"] == "Capitol Hill"
+
+    def test_nonexistent_city_returns_404(self):
+        app, SessionCls = _get_test_app()
+        session = SessionCls()
+        _seed_data(session)
+        session.close()
+
+        with TestClient(app) as client:
+            resp = client.get("/api/v1/cities/9999/neighborhoods/boundaries")
+
         assert resp.status_code == 404

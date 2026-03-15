@@ -11,6 +11,7 @@ import type {
   CityCoverageResponse,
   CityListResponse,
   GeoJSONFeatureCollection,
+  NeighborhoodBoundaryFeatureCollection,
   LogoutResponse,
   NeighborhoodDetailResponse,
   NeighborhoodListItem,
@@ -255,6 +256,15 @@ export const citiesApi = {
   async neighborhoods(cityId: number): Promise<{ neighborhoods: NeighborhoodListItem[] }> {
     return request<{ neighborhoods: NeighborhoodListItem[] }>(
       `/cities/${cityId}/neighborhoods`,
+    );
+  },
+
+  /** Neighborhood boundaries for a city as GeoJSON. */
+  async neighborhoodBoundaries(
+    cityId: number,
+  ): Promise<NeighborhoodBoundaryFeatureCollection> {
+    return request<NeighborhoodBoundaryFeatureCollection>(
+      `/cities/${cityId}/neighborhoods/boundaries`,
     );
   },
 

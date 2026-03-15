@@ -214,20 +214,8 @@ export default function CoveragePage() {
       setNeighborhoodFeatures([]);
       return;
     }
-    // Fetch boundaries for all neighborhoods
-    Promise.all(
-      neighborhoods.map((n) =>
-        citiesApi.neighborhoodBoundary(selectedCityId!, n.id).then((f) => ({
-          ...(f as unknown as NeighborhoodFeature),
-          properties: {
-            id: n.id,
-            name: n.name,
-            coverage_percentage: n.coverage_percentage,
-          },
-        })),
-      ),
-    )
-      .then(setNeighborhoodFeatures)
+    citiesApi.neighborhoodBoundaries(selectedCityId)
+      .then((response) => setNeighborhoodFeatures(response.features as NeighborhoodFeature[]))
       .catch(() => {});
   }, [selectedCityId, neighborhoods]);
 

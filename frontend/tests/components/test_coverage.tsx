@@ -39,6 +39,7 @@ vi.mock("@/components/Map/LayerToggles", () => ({
 const triggerCoverage = vi.fn();
 const syncStatus = vi.fn();
 const citiesApiNeighborhoods = vi.fn().mockResolvedValue({ neighborhoods: [] });
+const citiesApiNeighborhoodBoundaries = vi.fn().mockResolvedValue({ type: "FeatureCollection", features: [] });
 const setNeighborhoods = vi.fn();
 const setSelectedCity = vi.fn();
 const setSelectedNeighborhood = vi.fn();
@@ -62,7 +63,11 @@ const coverageApiCityStreets = vi.fn().mockResolvedValue({ type: "FeatureCollect
 const activitiesApiGeo = vi.fn().mockResolvedValue({ type: "FeatureCollection", features: [] });
 
 vi.mock("@/api/client", () => ({
-  citiesApi: { neighborhoods: citiesApiNeighborhoods, neighborhoodBoundary: vi.fn() },
+  citiesApi: {
+    neighborhoods: citiesApiNeighborhoods,
+    neighborhoodBoundaries: citiesApiNeighborhoodBoundaries,
+    neighborhoodBoundary: vi.fn(),
+  },
   coverageApi: { city: coverageApiCity, cityStreets: coverageApiCityStreets },
   activitiesApi: { getAllGeoJSON: activitiesApiGeo },
   syncApi: { triggerCoverage, status: syncStatus },
@@ -274,6 +279,7 @@ describe("CoveragePage", () => {
     triggerCoverage.mockReset();
     syncStatus.mockReset();
     citiesApiNeighborhoods.mockClear();
+    citiesApiNeighborhoodBoundaries.mockClear();
     coverageApiCity.mockClear();
     coverageApiCityStreets.mockClear();
     activitiesApiGeo.mockClear();
