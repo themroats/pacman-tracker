@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+
+# Node.js
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# TS config build artifacts
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/vitest.config.js
+frontend/vitest.config.d.ts
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Testing
+coverage/
+htmlcov/
+.coverage
+.pytest_cache/
+.nyc_output/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Cache
+backend/cache/
+
+# API test files (contain tokens)
+*.http
+
+# Personal notes
+issues.txt
+*.txt
+!requirements.txt
+
+# OSRM
+osrm-data/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Deployment artifacts
+backend/appservice-siteconfig.json
+
+# Misc
+*.bak
+*.orig

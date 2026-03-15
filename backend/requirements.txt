@@ -1,0 +1,36 @@
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Database
+sqlalchemy>=2.0.25
+geoalchemy2>=0.14.3
+
+# Geospatial
+shapely>=2.0.2
+geopandas>=0.14.2
+osmnx>=1.9.1
+pyproj>=3.6.1
+
+# HTTP client (Strava API)
+httpx>=0.27.0
+
+# Polyline decoding (Google Encoded Polyline)
+polyline>=2.0.0
+
+# Security
+cryptography>=42.0.0
+python-dotenv>=1.0.0
+
+# Pydantic (settings + schemas)
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+httpx  # also used as test client for FastAPI
+
+# Linting
+ruff>=0.2.0

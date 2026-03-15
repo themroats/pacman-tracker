@@ -1,0 +1,71 @@
+# Version control
+.git/
+.gitignore
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+htmlcov/
+.coverage
+.pytest_cache/
+.nyc_output/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose.yml
+
+# Data / caches
+data/
+cache/
+*.db
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+data/
+
+# OSRM data (large)
+osrm-data/
+
+# Specs/docs
+specs/
+*.md

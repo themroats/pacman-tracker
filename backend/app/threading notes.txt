@@ -1,0 +1,25 @@
+┌─ Uvicorn (event loop, main thread) ───────────────────────┐
+│  Reads TCP bytes, parses HTTP                              │
+│  Passes to FastAPI                                         │
+└────────────────────────────────────────────────────────────┘
+        │
+┌─ FastAPI (event loop, main thread) ───────────────────────┐
+│  1. CORS middleware: checks origin                         │
+│  2. Routing: matches GET /api/v1/activities                │
+│  3. Sees regular "def" → dispatches to thread pool         │
+└────────────────────────────────────────────────────────────┘
+        │
+┌─ Thread Pool (worker thread) ─────────────────────────────┐
+│  4. Parameters: sport_type="Run", limit=20                 │
+│  5. Dependencies: get_db() → Session                       │
+│  6. list_activities(db=session, sport_type="Run", limit=20)│
+│  7. Serialization: ActivityListResponse → JSON             │
+└────────────────────────────────────────────────────────────┘
+        │
+┌─ FastAPI (event loop, main thread) ───────────────────────┐
+│  8. CORS middleware: adds response headers                 │
+└────────────────────────────────────────────────────────────┘
+        │
+┌─ Uvicorn (event loop, main thread) ───────────────────────┐
+│  Writes HTTP response bytes to TCP socket                  │
+└────────────────────────────────────────────────────────────┘
