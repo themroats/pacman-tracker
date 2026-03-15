@@ -29,7 +29,7 @@ export default function ProgressPage() {
 
   // Load stats on mount
   useEffect(() => {
-    progressApi.stats().then(setStats).catch(() => {});
+    progressApi.stats().then(setStats);
   }, []);
 
   // Auto-select first city
@@ -52,7 +52,6 @@ export default function ProgressPage() {
         setCurrentPct(data.current_coverage_percentage);
         setCityName(data.city_name);
       })
-      .catch(() => {})
       .finally(() => setLoading(false));
   }, [selectedCityId]);
 

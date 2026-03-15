@@ -2,7 +2,7 @@
  * FilterPanel — activity filter controls (sport type, date range, distance).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActivityFilters } from "@/types/api";
 
 const SPORT_TYPES = ["All", "Run", "Walk", "Ride", "Hike"];
@@ -15,6 +15,12 @@ interface FilterPanelProps {
 export default function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
   const [localStartDate, setLocalStartDate] = useState(filters.start_date || "");
   const [localEndDate, setLocalEndDate] = useState(filters.end_date || "");
+
+  // Sync local state when parent filters change (e.g., filters cleared externally)
+  useEffect(() => {
+    setLocalStartDate(filters.start_date || "");
+    setLocalEndDate(filters.end_date || "");
+  }, [filters.start_date, filters.end_date]);
 
   return (
     <div

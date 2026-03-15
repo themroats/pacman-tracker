@@ -17,21 +17,23 @@ export default function SyncStatus() {
     let timer: ReturnType<typeof setInterval>;
 
     const fetchStatus = async () => {
-      try {
-        const status = await syncApi.status();
-        setSyncStatus(status);
+      const status = await syncApi.status();
+      setSyncStatus(status);
 
-        // Stop polling when sync is complete
-        if (status.status === "idle" || status.status === "error") return;
-      } catch {
-        // Ignore errors silently
+      if (status.status === "complete") {
+        // Show success toast via store
+        useAppStore.getState().addToast("Sync completed successfully!", "success");
       }
     };
 
     fetchStatus();
 
-    // Poll during active sync
-    if (storeSyncStatus?.status === "importing" || storeSyncStatus?.status === "syncing") {
+    // Poll during active sync or "complete" (one more cycle to observe idle transition)
+    if (
+      storeSyncStatus?.status === "importing" ||
+      storeSyncStatus?.status === "syncing" ||
+      storeSyncStatus?.status === "complete"
+    ) {
       timer = setInterval(fetchStatus, 5000);
     }
 
