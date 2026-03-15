@@ -4,11 +4,15 @@ Strava webhook event handler.
 Dispatches activity create/update/delete events and triggers incremental sync.
 """
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
 from app.models.user import User
 from app.services.crypto import decrypt_token
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_webhook_event(
@@ -75,5 +79,10 @@ async def handle_webhook_event(
                     user_id=user.id, access_token=access_token
                 )
         except Exception:
-            # Log error but don't fail the webhook response
-            pass
+            logger.exception(
+                "Webhook handler failed for athlete %d, activity %d (%s)",
+                strava_athlete_id,
+                strava_activity_id,
+                aspect_type,
+            )
+            raise
