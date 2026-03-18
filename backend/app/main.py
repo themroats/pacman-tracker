@@ -58,13 +58,54 @@ def error_response(code: str, message: str, status_code: int, details: dict | No
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup / shutdown hooks."""
-    # Startup: ensure database engine and schema are initialised.
+    import logging
+
     from app import models  # noqa: F401
     from app.database import Base, get_engine
     from app.services.city_bootstrap import ensure_city_bootstrap_started
 
+    startup_logger = logging.getLogger(__name__)
+
     engine = get_engine()
     Base.metadata.create_all(bind=engine)
+
+    # Lightweight schema migration for new columns on existing tables
+    from sqlalchemy import inspect as sa_inspect, text as sa_text
+
+    inspector = sa_inspect(engine)
+    if inspector.has_table("users"):
+        existing_cols = {c["name"] for c in inspector.get_columns("users")}
+        with engine.connect() as conn:
+            if "access_token_hash" not in existing_cols:
+                startup_logger.info("Adding access_token_hash column to users table")
+                conn.execute(sa_text("ALTER TABLE users ADD COLUMN access_token_hash VARCHAR(64)"))
+                conn.execute(sa_text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_access_token_hash ON users(access_token_hash)"))
+                conn.commit()
+            if "sync_started_at" not in existing_cols:
+                startup_logger.info("Adding sync_started_at column to users table")
+                conn.execute(sa_text("ALTER TABLE users ADD COLUMN sync_started_at DATETIME"))
+                conn.commit()
+
+    # Recover stale sync statuses from previous process crash / restart
+    from sqlalchemy.orm import Session
+    from app.models.user import User
+
+    with Session(engine) as session:
+        stale_users = (
+            session.query(User)
+            .filter(User.sync_status.in_(["syncing", "importing"]))
+            .all()
+        )
+        for u in stale_users:
+            startup_logger.warning(
+                "Recovering stale sync status for user %d (%s -> error)",
+                u.id,
+                u.sync_status,
+            )
+            u.sync_status = "error"
+        if stale_users:
+            session.commit()
+
     ensure_city_bootstrap_started()
     yield
     # Shutdown: clean up
@@ -143,7 +184,10 @@ def create_app() -> FastAPI:
     # Health check
     @app.get("/health")
     async def health_check():
-        return {"status": "ok"}
+        from app.services.routing import check_osrm_available
+
+        osrm_ok = await check_osrm_available()
+        return {"status": "ok", "osrm_available": osrm_ok}
 
     return app
 

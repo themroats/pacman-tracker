@@ -5,6 +5,8 @@ Validates the Bearer token from the Authorization header by looking up
 the user whose encrypted access token matches.
 """
 
+import logging
+
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,9 @@ from app.config import get_settings
 from app.database import get_db
 from app.main import AppError
 from app.models.user import User
-from app.services.crypto import decrypt_token
+from app.services.crypto import compute_token_hash
+
+logger = logging.getLogger(__name__)
 
 
 def get_current_user(
@@ -36,6 +40,10 @@ def get_current_user(
 
     # --- Dev bypass: skip token validation, return first user -----------
     if settings.dev_auth_bypass:
+        logger.critical(
+            "DEV_AUTH_BYPASS is enabled — all requests authenticate as the first user. "
+            "This MUST NOT be used in production."
+        )
         user = db.query(User).first()
         if user:
             return user
@@ -53,14 +61,10 @@ def get_current_user(
     if not token:
         raise AppError("UNAUTHORIZED", "Empty bearer token", 401)
 
-    # Look up by decrypting stored tokens
-    users = db.query(User).all()
-    for user in users:
-        try:
-            stored_token = decrypt_token(user.access_token_encrypted)
-            if stored_token == token:
-                return user
-        except Exception:
-            continue
+    # O(1) lookup via indexed SHA-256 hash of the plaintext token
+    token_hash = compute_token_hash(token)
+    user = db.query(User).filter_by(access_token_hash=token_hash).first()
+    if user:
+        return user
 
     raise AppError("UNAUTHORIZED", "Invalid or expired token", 401)

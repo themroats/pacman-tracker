@@ -36,12 +36,12 @@ export default function RouteForm({
   const [distanceKm, setDistanceKm] = useState("5");
   const [cityId, setCityId] = useState<number | null>(cities[0]?.id ?? null);
 
-  // Load neighborhoods for the initial city on mount
+  // Load neighborhoods when city changes
   React.useEffect(() => {
     if (cityId && onCityChange) {
       onCityChange(cityId);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cityId, onCityChange]);
   const [neighborhoodId, setNeighborhoodId] = useState<number | null>(null);
   const [lng, setLng] = useState(startPoint?.lng?.toString() ?? "-122.32225012178574");
   const [lat, setLat] = useState(startPoint?.lat?.toString() ?? "47.623765870845304");
@@ -54,12 +54,33 @@ export default function RouteForm({
     }
   }, [startPoint]);
 
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cityId) return;
+
+    const parsedLng = parseFloat(lng);
+    const parsedLat = parseFloat(lat);
+    const parsedDist = parseFloat(distanceKm);
+
+    if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+      setValidationError("Longitude must be between -180 and 180");
+      return;
+    }
+    if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+      setValidationError("Latitude must be between -90 and 90");
+      return;
+    }
+    if (isNaN(parsedDist) || parsedDist <= 0 || parsedDist > 50) {
+      setValidationError("Distance must be between 0.5 and 50 km");
+      return;
+    }
+
+    setValidationError(null);
     onSubmit({
-      start_point: { lng: parseFloat(lng), lat: parseFloat(lat) },
-      distance_meters: parseFloat(distanceKm) * 1000,
+      start_point: { lng: parsedLng, lat: parsedLat },
+      distance_meters: parsedDist * 1000,
       city_id: cityId,
       neighborhood_id: neighborhoodId ?? undefined,
     });
@@ -145,6 +166,12 @@ export default function RouteForm({
             ))}
           </select>
         </label>
+      )}
+
+      {validationError && (
+        <p role="alert" style={{ color: "#dc2626", fontSize: "0.8rem", margin: 0 }}>
+          {validationError}
+        </p>
       )}
 
       <button

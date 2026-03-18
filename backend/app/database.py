@@ -30,12 +30,18 @@ def _load_spatialite(dbapi_conn, connection_record):
         except Exception:
             continue
     else:
-        logger.warning(
+        raise RuntimeError(
             "SpatiaLite extension not found. "
-            "Spatial queries will not work. "
-            "Install SpatiaLite to enable geospatial features."
+            "Install SpatiaLite (e.g. libsqlite3-mod-spatialite) to enable geospatial features."
         )
     dbapi_conn.enable_load_extension(False)
+
+
+def _enable_foreign_keys(dbapi_conn, connection_record):
+    """Enable SQLite foreign-key constraint enforcement."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON")
+    cursor.close()
 
 
 def _ensure_sqlite_parent_dir(url: str) -> None:
@@ -73,6 +79,7 @@ def create_db_engine(database_url: str | None = None):
 
     if url.startswith("sqlite"):
         event.listen(engine, "connect", _load_spatialite)
+        event.listen(engine, "connect", _enable_foreign_keys)
         # Initialise SpatiaLite metadata (idempotent)
         with engine.connect() as conn:
             conn.execute(text("SELECT InitSpatialMetaData(1)"))

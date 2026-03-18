@@ -9,6 +9,7 @@ Endpoints:
 """
 
 import datetime
+import logging
 from typing import Optional
 
 import polyline as polyline_codec
@@ -29,6 +30,8 @@ from app.schemas.activity import (
 )
 
 router = APIRouter(prefix="/activities", tags=["activities"])
+
+logger = logging.getLogger(__name__)
 
 
 from app.api.deps import get_current_user
@@ -51,10 +54,15 @@ def _activity_to_summary(act: Activity) -> ActivitySummary:
     )
 
 
-def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
-    """Convert an Activity to a GeoJSON Feature."""
+def _activity_to_geojson_feature(act: Activity, lightweight: bool = False) -> ActivityGeoJSONFeature:
+    """Convert an Activity to a GeoJSON Feature.
+
+    When *lightweight* is True, skip expensive gps_trace deserialization and
+    use summary_polyline only. This is much faster for large result sets.
+    """
     geometry = None
-    if act.gps_trace is not None:
+
+    if not lightweight and act.gps_trace is not None:
         try:
             shape = to_shape(act.gps_trace)
             geometry = {
@@ -62,9 +70,9 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
                 "coordinates": list(shape.coords),
             }
         except Exception:
-            pass
+            logger.warning("Failed to convert gps_trace for activity %d", act.id)
 
-    # Fallback: decode summary_polyline when gps_trace geometry is missing
+    # Fallback (or primary path in lightweight mode): decode summary_polyline
     if geometry is None and act.summary_polyline:
         try:
             coords = polyline_codec.decode(act.summary_polyline)
@@ -74,7 +82,7 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
                     "coordinates": [[lng, lat] for lat, lng in coords],
                 }
         except Exception:
-            pass
+            logger.warning("Failed to decode summary_polyline for activity %d", act.id)
 
     return ActivityGeoJSONFeature(
         properties=ActivityGeoJSONProperties(
@@ -89,7 +97,7 @@ def _activity_to_geojson_feature(act: Activity) -> ActivityGeoJSONFeature:
 
 
 @router.get("", response_model=ActivityListResponse)
-async def list_activities(
+def list_activities(
     sport_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
@@ -99,11 +107,10 @@ async def list_activities(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    user: Activity = Depends(get_current_user),
 ):
     """List user's imported activities with optional filters."""
-    # TODO: Replace with proper auth
-    # user = Depends(get_current_user)
-    query = db.query(Activity)
+    query = db.query(Activity).filter_by(user_id=user.id)
 
     if sport_type:
         query = query.filter(Activity.sport_type == sport_type)
@@ -135,15 +142,17 @@ async def list_activities(
 
 
 @router.get("/geojson")
-async def activities_geojson(
+def activities_geojson(
     sport_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     city_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
+    user: Activity = Depends(get_current_user),
 ):
     """Get all user activities as a GeoJSON FeatureCollection."""
     query = db.query(Activity).filter(
+        Activity.user_id == user.id,
         (Activity.has_gps == True) | (Activity.summary_polyline != None)  # noqa: E712
     )
 
@@ -158,13 +167,17 @@ async def activities_geojson(
 
     activities = query.order_by(Activity.start_date.desc()).all()
 
+    # Use lightweight mode (summary polylines only) when result set is large
+    # to avoid expensive gps_trace geometry deserialization
+    lightweight = len(activities) > 200
+
     return ActivityGeoJSONCollection(
-        features=[_activity_to_geojson_feature(a) for a in activities],
+        features=[_activity_to_geojson_feature(a, lightweight=lightweight) for a in activities],
     )
 
 
 @router.get("/{activity_id}")
-async def get_activity(
+def get_activity(
     activity_id: int,
     db: Session = Depends(get_db),
 ):
@@ -182,7 +195,7 @@ async def get_activity(
                 "coordinates": list(shape.coords),
             }
         except Exception:
-            pass
+            logger.warning("Failed to convert gps_trace for activity detail %d", activity.id)
 
     return ActivityDetail(
         id=activity.id,
@@ -200,7 +213,7 @@ async def get_activity(
 
 
 @router.get("/{activity_id}/geojson")
-async def activity_geojson(
+def activity_geojson(
     activity_id: int,
     db: Session = Depends(get_db),
 ):

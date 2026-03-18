@@ -1,5 +1,6 @@
 """In-process tracking for background sync jobs and stale-status recovery."""
 
+import datetime
 import logging
 
 from sqlalchemy.orm import Session
@@ -34,13 +35,26 @@ def clear_active_sync_jobs() -> None:
 def recover_stale_sync_status(db: Session, user: User) -> str | None:
     """Recover a persisted busy status when no in-process job exists after a restart.
 
+    Also detects syncs that have been running for more than 5 minutes with no
+    active in-process job as stale (covers the case where the process crashed
+    while the sync was running).
+
     Returns a user-facing message when a stale status was recovered, else None.
     """
     if user.sync_status not in {"importing", "syncing"}:
         return None
 
     if has_active_sync(user.id):
-        return None
+        # Check timeout: if sync_started_at is set and > 5 min old, it's stale
+        if user.sync_started_at:
+            elapsed = datetime.datetime.now(datetime.UTC) - user.sync_started_at.replace(
+                tzinfo=datetime.UTC
+            )
+            if elapsed.total_seconds() <= 300:
+                return None
+            # Fall through to recovery below
+        else:
+            return None
 
     logger.warning(
         "Recovering stale sync status for user %d from %s to error",

@@ -74,6 +74,7 @@ export default function CoveragePage() {
 
   const [coverageData, setCoverageData] = useState<CityCoverageResponse | null>(null);
   const [streetsGeoJSON, setStreetsGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
+  const streetsCache = useRef<Map<string, GeoJSONFeatureCollection>>(new Map());
   const [activitiesGeoJSON, setActivitiesGeoJSON] = useState<GeoJSONFeatureCollection | null>(null);
   const [neighborhoodFeatures, setNeighborhoodFeatures] = useState<NeighborhoodFeature[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,9 +114,18 @@ export default function CoveragePage() {
   }, []);
 
   const loadStreetCoverage = useCallback((cityId: number, neighborhoodId: number | null) => {
+    const cacheKey = `${cityId}:${neighborhoodId ?? "all"}`;
+    const cached = streetsCache.current.get(cacheKey);
+    if (cached) {
+      setStreetsGeoJSON(cached);
+      return Promise.resolve();
+    }
     return coverageApi.cityStreets(cityId, {
       neighborhood_id: neighborhoodId ?? undefined,
-    }).then(setStreetsGeoJSON);
+    }).then((data) => {
+      streetsCache.current.set(cacheKey, data);
+      setStreetsGeoJSON(data);
+    });
   }, []);
 
   const loadCityActivities = useCallback((cityId: number) => {
@@ -160,7 +170,7 @@ export default function CoveragePage() {
       return;
     }
 
-    fetchCoverageStatus().catch(() => {});
+    fetchCoverageStatus();
   }, [fetchCoverageStatus, isAuthenticated]);
 
   // Load neighborhoods when city changes
@@ -172,7 +182,7 @@ export default function CoveragePage() {
     citiesApi
       .neighborhoods(selectedCityId)
       .then((r) => setNeighborhoods(r.neighborhoods))
-      .catch(() => {});
+      ;
   }, [selectedCityId, setNeighborhoods]);
 
   // Load coverage data when city changes
@@ -181,10 +191,12 @@ export default function CoveragePage() {
       setCoverageData(null);
       setStreetsGeoJSON(null);
       setNeighborhoodFeatures([]);
+      streetsCache.current.clear();
       return;
     }
+    streetsCache.current.clear();
     loadCoverageData(selectedCityId)
-      .catch(() => {})
+      
       .finally(() => {});
   }, [loadCoverageData, selectedCityId]);
 
@@ -195,7 +207,7 @@ export default function CoveragePage() {
       return;
     }
     loadStreetCoverage(selectedCityId, selectedNeighborhoodId)
-      .catch(() => {});
+      ;
   }, [loadStreetCoverage, selectedCityId, selectedNeighborhoodId]);
 
   // Load activities separately (only depends on city)
@@ -205,7 +217,7 @@ export default function CoveragePage() {
       return;
     }
     loadCityActivities(selectedCityId)
-      .catch(() => {});
+      ;
   }, [loadCityActivities, selectedCityId]);
 
   // Load neighborhood boundaries
@@ -216,7 +228,7 @@ export default function CoveragePage() {
     }
     citiesApi.neighborhoodBoundaries(selectedCityId)
       .then((response) => setNeighborhoodFeatures(response.features as NeighborhoodFeature[]))
-      .catch(() => {});
+      ;
   }, [selectedCityId, neighborhoods]);
 
   const handleNeighborhoodSelect = useCallback(
@@ -230,7 +242,7 @@ export default function CoveragePage() {
     if (!isAuthenticated || !coverageJobRunning) return;
 
     const timer = window.setInterval(() => {
-      fetchCoverageStatus().catch(() => {});
+      fetchCoverageStatus();
     }, 2000);
 
     return () => {
@@ -244,7 +256,7 @@ export default function CoveragePage() {
 
     if (previousStatus && isCoverageJobActive(previousStatus) && currentStatus === "idle") {
       setCoverageJobMessage("Coverage data updated.");
-      refreshCoveragePageData().catch(() => {});
+      refreshCoveragePageData();
     }
 
     previousCoverageStatus.current = currentStatus;

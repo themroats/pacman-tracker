@@ -6,12 +6,17 @@ Endpoints:
 - POST /webhook/strava → Event receiver
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.main import AppError
+from app.services.strava import TokenRevokedError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
@@ -58,11 +63,19 @@ async def strava_webhook_event(
     # Dispatch to webhook handler
     from app.services.webhook import handle_webhook_event
 
-    await handle_webhook_event(
-        db=db,
-        aspect_type=aspect_type,
-        strava_activity_id=object_id,
-        strava_athlete_id=owner_id,
-    )
+    try:
+        await handle_webhook_event(
+            db=db,
+            aspect_type=aspect_type,
+            strava_activity_id=object_id,
+            strava_athlete_id=owner_id,
+        )
+    except TokenRevokedError:
+        # Token revocation is non-retryable — acknowledge the webhook
+        logger.warning("Token revoked for athlete %s during webhook processing", owner_id)
+        return {"status": "received"}
+    except Exception:
+        logger.exception("Webhook processing failed for athlete %s, activity %s", owner_id, object_id)
+        raise  # Returns 500 so Strava retries
 
     return {"status": "received"}

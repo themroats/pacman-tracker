@@ -10,7 +10,9 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Query
+import logging
+
+from fastapi import APIRouter, Depends, Header, Path, Query
 from geoalchemy2.shape import to_shape
 from sqlalchemy import func, and_, case, literal_column
 from sqlalchemy.orm import Session
@@ -24,6 +26,8 @@ from app.models.street import StreetSegment
 from app.models.user import User
 
 router = APIRouter(prefix="/coverage", tags=["coverage"])
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +137,7 @@ def _streets_geojson(
                 "coordinates": list(geom_shape.coords),
             }
         except Exception:
+            logger.warning("Failed to serialize geometry for street %d", s.id)
             continue
 
         features.append(
@@ -160,8 +165,8 @@ def _streets_geojson(
 
 
 @router.get("/city/{city_id}")
-async def city_coverage(
-    city_id: int,
+def city_coverage(
+    city_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):
@@ -174,7 +179,61 @@ async def city_coverage(
         db.query(Neighborhood).filter_by(city_id=city.id).order_by(Neighborhood.name).all()
     )
 
-    n_summaries = [_neighborhood_coverage(db, user.id, n) for n in neighborhoods]
+    # Batched coverage query — single GROUP BY instead of N+1
+    neighborhood_ids = [n.id for n in neighborhoods]
+    coverage_rows = {}
+    if neighborhood_ids:
+        rows = (
+            db.query(
+                StreetSegment.neighborhood_id,
+                func.count(StreetSegment.id).label("total"),
+                func.count(UserStreetCoverage.id).label("traveled"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (UserStreetCoverage.is_traveled == True, StreetSegment.length_meters),
+                            else_=literal_column("0"),
+                        )
+                    ),
+                    0,
+                ).label("traveled_length"),
+            )
+            .outerjoin(
+                UserStreetCoverage,
+                and_(
+                    UserStreetCoverage.street_segment_id == StreetSegment.id,
+                    UserStreetCoverage.user_id == user.id,
+                    UserStreetCoverage.is_traveled == True,
+                ),
+            )
+            .filter(StreetSegment.neighborhood_id.in_(neighborhood_ids))
+            .group_by(StreetSegment.neighborhood_id)
+            .all()
+        )
+        for row in rows:
+            coverage_rows[row[0]] = row
+
+    n_summaries = []
+    for n in neighborhoods:
+        row = coverage_rows.get(n.id)
+        if row:
+            total = n.total_street_segments or row.total
+            traveled = row.traveled
+            traveled_length = float(row.traveled_length)
+        else:
+            total = n.total_street_segments or 0
+            traveled = 0
+            traveled_length = 0.0
+        pct = (traveled / total * 100) if total else 0.0
+        n_summaries.append({
+            "id": n.id,
+            "name": n.name,
+            "coverage_percentage": round(pct, 1),
+            "streets_traveled": traveled,
+            "streets_total": total,
+            "distance_traveled_m": round(traveled_length, 1),
+            "distance_total_m": round(n.total_street_length_m, 1),
+        })
 
     total_streets = city.total_street_segments or sum(ns["streets_total"] for ns in n_summaries)
     traveled_streets = sum(ns["streets_traveled"] for ns in n_summaries)
@@ -197,8 +256,8 @@ async def city_coverage(
 
 
 @router.get("/neighborhood/{neighborhood_id}")
-async def neighborhood_detail(
-    neighborhood_id: int,
+def neighborhood_detail(
+    neighborhood_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):
@@ -241,8 +300,8 @@ async def neighborhood_detail(
 
 
 @router.get("/neighborhood/{neighborhood_id}/streets")
-async def neighborhood_streets(
-    neighborhood_id: int,
+def neighborhood_streets(
+    neighborhood_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     user: User = Depends(_get_current_user),
 ):
@@ -259,8 +318,8 @@ async def neighborhood_streets(
 
 
 @router.get("/city/{city_id}/streets")
-async def city_streets(
-    city_id: int,
+def city_streets(
+    city_id: int = Path(gt=0),
     neighborhood_id: int | None = Query(None),
     status: str | None = Query(None),
     bbox: str | None = Query(None),
@@ -285,21 +344,30 @@ async def city_streets(
     if bbox:
         try:
             parts = [float(x) for x in bbox.split(",")]
-            if len(parts) == 4:
-                min_lng, min_lat, max_lng, max_lat = parts
-                from geoalchemy2 import functions as gfunc
+        except ValueError:
+            raise AppError("VALIDATION_ERROR", "Invalid bbox: values must be numbers", 400)
 
-                bbox_wkt = (
-                    f"POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, "
-                    f"{max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))"
-                )
-                query = query.filter(
-                    gfunc.ST_Intersects(
-                        StreetSegment.geometry,
-                        gfunc.ST_GeomFromText(bbox_wkt, 4326),
-                    )
-                )
-        except (ValueError, IndexError):
-            pass  # ignore malformed bbox
+        if len(parts) != 4:
+            raise AppError("VALIDATION_ERROR", "Invalid bbox: expected 4 values (minLng,minLat,maxLng,maxLat)", 400)
+
+        min_lng, min_lat, max_lng, max_lat = parts
+
+        if not (-180 <= min_lng <= 180 and -180 <= max_lng <= 180):
+            raise AppError("VALIDATION_ERROR", "Invalid bbox: longitude must be between -180 and 180", 400)
+        if not (-90 <= min_lat <= 90 and -90 <= max_lat <= 90):
+            raise AppError("VALIDATION_ERROR", "Invalid bbox: latitude must be between -90 and 90", 400)
+
+        from geoalchemy2 import functions as gfunc
+
+        bbox_wkt = (
+            f"POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, "
+            f"{max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))"
+        )
+        query = query.filter(
+            gfunc.ST_Intersects(
+                StreetSegment.geometry,
+                gfunc.ST_GeomFromText(bbox_wkt, 4326),
+            )
+        )
 
     return _streets_geojson(db, user.id, query, status_filter=status)

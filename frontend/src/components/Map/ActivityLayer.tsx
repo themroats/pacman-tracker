@@ -5,7 +5,7 @@
 import { GeoJSON, useMap } from "react-leaflet";
 import type { GeoJSONFeatureCollection } from "@/types/api";
 import type { PathOptions } from "leaflet";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const SPORT_COLORS: Record<string, string> = {
   Run: "#ff4444",
@@ -48,9 +48,12 @@ export default function ActivityLayer({ data, onFeatureClick, color, autoFit = t
     [onFeatureClick],
   );
 
-  // Fit bounds when data changes
+  // Fit bounds only on initial data load, not on filter changes
+  const hasFitted = useRef(false);
+
   useEffect(() => {
     if (!autoFit) return;
+    if (hasFitted.current) return;
     if (data && data.features.length > 0) {
       try {
         const L = (window as any).L;
@@ -59,6 +62,7 @@ export default function ActivityLayer({ data, onFeatureClick, color, autoFit = t
           const bounds = geojsonLayer.getBounds();
           if (bounds.isValid()) {
             map.fitBounds(bounds, { padding: [20, 20] });
+            hasFitted.current = true;
           }
         }
       } catch {

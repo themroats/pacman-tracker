@@ -4,7 +4,8 @@
  * Sidebar with RouteForm + RouteDetail, main map with RouteLayer.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";
@@ -34,14 +35,30 @@ interface RouteInfo {
 }
 
 export default function RoutePage() {
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const navigate = useNavigate();
   const neighborhoods = useAppStore((s) => s.neighborhoods);
   const setNeighborhoods = useAppStore((s) => s.setNeighborhoods);
   const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) navigate("/");
+  }, [isAuthenticated, navigate]);
 
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [osrmAvailable, setOsrmAvailable] = useState<boolean | null>(null);
+
+  // Check OSRM availability on mount
+  useEffect(() => {
+    fetch("/api/v1/health")
+      .then((r) => r.json())
+      .then((data) => setOsrmAvailable(data.osrm_available ?? null))
+      .catch(() => setOsrmAvailable(false));
+  }, []);
 
   const [layerVis, setLayerVis] = useState({ route: true, untraveled: true });
   const toggleLayer = useCallback((key: string) => {
@@ -57,8 +74,7 @@ export default function RoutePage() {
       if (cityId) {
         citiesApi
           .neighborhoods(cityId)
-          .then((r) => setNeighborhoods(r.neighborhoods))
-          .catch(() => {});
+          .then((r) => setNeighborhoods(r.neighborhoods));
       } else {
         setNeighborhoods([]);
       }
@@ -111,14 +127,23 @@ export default function RoutePage() {
         </div>
 
         <div style={{ padding: "1rem" }}>
-          <RouteForm
-            cities={cities}
-            neighborhoods={neighborhoods}
-            onCityChange={handleCityChange}
-            onSubmit={handleSubmit}
-            loading={loading}
-            citiesLoading={isBootstrapping}
-          />
+          {osrmAvailable === false ? (
+            <div style={{ padding: "1rem", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fca5a5" }}>
+              <p style={{ color: "#dc2626", fontWeight: 600, margin: 0 }}>Route suggestions unavailable</p>
+              <p style={{ color: "#6b7280", fontSize: "0.8125rem", marginTop: "0.25rem" }}>
+                The routing service is not running. Route suggestions require OSRM to be started.
+              </p>
+            </div>
+          ) : (
+            <RouteForm
+              cities={cities}
+              neighborhoods={neighborhoods}
+              onCityChange={handleCityChange}
+              onSubmit={handleSubmit}
+              loading={loading}
+              citiesLoading={isBootstrapping}
+            />
+          )}
           {isBootstrapping && cities.length === 0 && (
             <p style={{ marginTop: "0.75rem", fontSize: "0.8125rem", color: "#6b7280" }}>
               Preparing city data for the first run. This can take a minute or two.

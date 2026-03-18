@@ -81,3 +81,30 @@ class TestEncryptionProperties:
         tampered = encrypted[:-4] + "XXXX"
         with pytest.raises(Exception):
             decrypt_token(tampered)
+
+
+class TestComputeTokenHash:
+    """Unit tests for the SHA-256 token hash function (T005)."""
+
+    def test_returns_64_char_hex_string(self):
+        from app.services.crypto import compute_token_hash
+
+        h = compute_token_hash("test_token")
+        assert len(h) == 64
+        assert all(c in "0123456789abcdef" for c in h)
+
+    def test_deterministic(self):
+        from app.services.crypto import compute_token_hash
+
+        assert compute_token_hash("same") == compute_token_hash("same")
+
+    def test_different_inputs_different_hashes(self):
+        from app.services.crypto import compute_token_hash
+
+        assert compute_token_hash("token_a") != compute_token_hash("token_b")
+
+    def test_empty_string(self):
+        from app.services.crypto import compute_token_hash
+
+        h = compute_token_hash("")
+        assert len(h) == 64
