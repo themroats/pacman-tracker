@@ -54,7 +54,10 @@ export default function RoutePage() {
 
   // Check OSRM availability on mount
   useEffect(() => {
-    fetch("/api/v1/health")
+    // /health is at the API root, not under /api/v1
+    const apiBase = import.meta.env.VITE_API_URL || "/api/v1";
+    const healthUrl = apiBase.replace(/\/api\/v1\/?$/, "/health");
+    fetch(healthUrl)
       .then((r) => r.json())
       .then((data) => setOsrmAvailable(data.osrm_available ?? null))
       .catch(() => setOsrmAvailable(false));
