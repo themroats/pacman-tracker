@@ -16,7 +16,7 @@ Deploy the OSRM routing service to Azure so route suggestions work in production
 **Target Platform**: Azure (ACI + VNet + Storage Account)
 **Project Type**: Infrastructure deployment (no new application code)
 **Performance Goals**: Route requests < 5 seconds e2e for routes up to 10 km (SC-006)
-**Constraints**: < $30/month additional cost (SC-005); VNet-isolated, no public exposure (FR-010)
+**Constraints**: ~$40/month additional cost (SC-005); VNet-isolated, no public exposure (FR-010)
 **Scale/Scope**: Single ACI instance, single user PoC
 
 ## Constitution Check

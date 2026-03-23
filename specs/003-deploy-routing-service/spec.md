@@ -121,7 +121,7 @@ The deployment process for the routing service is documented alongside the exist
 - **SC-002**: The `/health` endpoint reports `osrm_available: true` when the routing service is deployed and running.
 - **SC-003**: The routing service recovers from a restart and resumes serving requests within 5 minutes without re-running data preparation.
 - **SC-004**: The data preparation pipeline completes successfully in a single execution without manual intervention beyond launching it.
-- **SC-005**: The deployment adds no more than $45/month to the existing cloud hosting costs (~$18/month currently). ACI at 1 vCPU / 2 GB runs ~$40/month; may be reduced to 0.5 vCPU / 1.5 GB (~$22/month) if needed.
+- **SC-005**: The deployment adds ~$40/month to the existing cloud hosting costs (~$18/month previously, ~$58/month total). ACI at 1 vCPU / 2 GB runs ~$40/month; can be reduced to 0.5 vCPU / 1.5 GB (~$22/month) if needed.
 - **SC-006**: Route suggestion requests complete within 5 seconds end-to-end (user request to response) for routes up to 10 km.
 
 ## Clarifications

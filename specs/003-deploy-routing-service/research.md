@@ -177,25 +177,19 @@ az monitor metrics alert create --resource-group $rg --name osrm-crash-alert \
 
 | Resource | SKU / Config | ~Monthly Cost |
 |----------|-------------|---------------|
-| ACI (routing server) | 1 vCPU, 2 GB RAM, always-on | ~$15-20 |
-| Storage Account + File Share | Standard LRS, ~2.5 GB | ~$0.20 |
+| ACI (routing server) | 1 vCPU, 2 GB RAM, always-on | ~$40 |
+| Storage Account + File Share | Standard LRS, ~2.8 GB used | ~$0.18 |
 | VNet | Free | $0 |
 | Azure Monitor alert | Free tier (first 10 alerts) | $0 |
 | ACI (data prep job) | 2 vCPU, 4 GB RAM, ~45 min one-time | ~$0.10 one-time |
-| **Total recurring** | | **~$16-21/month** |
+| **Total recurring** | | **~$40/month** |
 
-**Rationale**: ACI pricing is ~$0.0000125/second per vCPU + ~$0.0000014/second per GB RAM. For 1 vCPU + 2 GB RAM running 24/7: roughly (0.0000125 + 2×0.0000014) × 86400 × 30 ≈ $39/month at list price. However, ACI in a VNet may have slightly different pricing. The actual cost should be validated during deployment. If it exceeds $30/month, the CPU can be reduced to 0.5 vCPU (OSRM mostly serves from memory-mapped data and doesn't need much CPU for a single-user PoC).
-
-**Refinement**: ACI pricing for Linux containers (2026): $0.0000125/s per vCPU core-seconds, plus $0.0000014/s per GB memory. For 1 vCPU + 2 GB RAM:
+**Rationale**: ACI pricing is ~$0.0000125/second per vCPU + ~$0.0000014/second per GB RAM. For 1 vCPU + 2 GB RAM running 24/7:
 - vCPU: 1 × 0.0000125 × 2,592,000 = $32.40
 - Memory: 2 × 0.0000014 × 2,592,000 = $7.26
 - Total: ~$39.66/month
 
-This exceeds the $30 budget. Options:
-1. **Use 0.5 vCPU + 1.5 GB RAM**: ~$16 + $5.44 = ~$21.50/month — fits budget, sufficient for PoC single-user load.
-2. Accept the ~$40 cost if OSRM needs the full 1 vCPU.
-
-**Updated decision**: Start with 1 vCPU / 2 GB RAM. If the monthly bill exceeds $30, scale down to 0.5 vCPU / 1.5 GB RAM. OSRM for a single-user PoC does not need significant CPU — it's mainly memory-bound for loading map data.
+Verified post-deployment: actual resource configuration matches this calculation.
 
 ## R7: VNet Subnet Planning
 

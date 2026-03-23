@@ -70,7 +70,7 @@ pacman-tracker-rg (Resource Group)
 | ACI Memory | 2 GB | ACI create command |
 | ACI Prep vCPU | 2 | Prep ACI create command |
 | ACI Prep Memory | 4 GB | Prep ACI create command |
-| File Share quota | 10 GB | Storage share create command |
+| File Share quota | 10 GB (2.8 GB used) | Storage share create command |
 | VNet CIDR | 10.0.0.0/16 | VNet create command |
 | ACI Subnet | 10.0.1.0/24 | Subnet create command |
 | App Subnet | 10.0.2.0/24 | Subnet create command |
