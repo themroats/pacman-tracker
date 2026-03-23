@@ -41,6 +41,12 @@ frontend/vitest.config.d.ts
 Thumbs.db
 *.tmp
 
+# Temp files
+backend-logs/
+resp.txt
+req.json
+response.json
+
 # Testing
 coverage/
 htmlcov/

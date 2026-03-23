@@ -38,7 +38,7 @@ Pac-Man Tracker imports your Strava activities, matches the GPS traces against O
 | **Frontend** | React 18, TypeScript, Vite, react-leaflet, Zustand |
 | **Backend** | Python 3.12+, FastAPI, SQLAlchemy, GeoAlchemy2 |
 | **Database** | SQLite + SpatiaLite (local dev) |
-| **Routing** | OSRM with foot profile (via Docker) |
+| **Routing** | [OSRM](https://project-osrm.org/) with foot profile (via Docker) |
 | **Geospatial** | Shapely, GeoPandas, OSMnx, pyproj |
 
 ## Quick Start
@@ -111,11 +111,25 @@ npm run dev
 
 ### 4. OSRM routing server (optional — needed for route suggestions)
 
+[OSRM](https://project-osrm.org/) (Open Source Routing Machine) is a routing engine
+that calculates walking directions between points on a map. The app uses it to generate
+route suggestions that prioritise untraveled streets — given a starting point and a
+target distance, OSRM solves a round-trip through selected waypoints and returns
+turn-by-turn geometry that gets drawn on the map.
+
+OSRM runs as a separate service (not embedded in the backend). Locally it runs in Docker;
+in production it runs as an Azure Container Instance on a private VNet. It uses
+OpenStreetMap data for Washington state, pre-processed with a foot/walking profile.
+
 ```bash
-# From project root
-docker compose --profile prepare up osrm-prepare   # One-time: downloads + processes OSM data
-docker compose up osrm                              # Start routing server on :5000
+# From project root — one-time data preparation (~30 min, downloads ~800 MB of OSM data)
+docker compose --profile prepare up osrm-prepare
+
+# Start the routing server on :5000
+docker compose up osrm
 ```
+
+For production deployment, see Section 6 of [AZURE_DEPLOY.md](AZURE_DEPLOY.md).
 
 ## Project Structure
 
