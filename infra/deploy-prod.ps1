@@ -8,7 +8,9 @@ param(
     [string]$BackendImageName = "pacman-backend",
     [string]$BackendEnvPath = "backend/.env",
     [switch]$SkipBackend,
-    [switch]$SkipFrontend
+    [switch]$SkipFrontend,
+    [switch]$SkipOsrm,
+    [string]$AlertEmail = ""
 )
 
 Set-StrictMode -Version Latest
@@ -283,3 +285,44 @@ if (-not $SkipFrontend) {
 Write-Step "Deployment complete"
 Write-Host "Backend:  https://$backendHost/health" -ForegroundColor Green
 Write-Host "Frontend: https://$frontendHost/" -ForegroundColor Green
+
+# ---------------------------------------------------------------------------
+# OSRM Routing Service
+# ---------------------------------------------------------------------------
+
+if (-not $SkipOsrm) {
+    Write-Step "Deploying OSRM routing service"
+
+    $osrmScript = Join-Path $PSScriptRoot "deploy-osrm.ps1"
+    $prepScript = Join-Path $PSScriptRoot "prep-osrm-data.ps1"
+
+    if (-not (Test-Path $osrmScript)) {
+        Write-Host "  deploy-osrm.ps1 not found at $osrmScript, skipping OSRM." -ForegroundColor Yellow
+    } else {
+        # Run data preparation if not already done
+        if (Test-Path $prepScript) {
+            Write-Host "  Running OSRM data preparation (skips if data exists)..." -ForegroundColor Cyan
+            & $prepScript -ResourceGroup $ResourceGroup
+        }
+
+        # Deploy routing server + connect backend
+        $osrmArgs = @(
+            "-ResourceGroup", $ResourceGroup,
+            "-BackendAppName", $BackendAppName
+        )
+        if (-not [string]::IsNullOrWhiteSpace($AlertEmail)) {
+            $osrmArgs += @("-AlertEmail", $AlertEmail)
+        }
+        & $osrmScript @osrmArgs
+
+        # Verify OSRM via health check
+        $health = Invoke-RestMethod -Uri "https://$backendHost/health" -TimeoutSec 30
+        if ($health.osrm_available -eq $true) {
+            Write-Host "  OSRM routing service: osrm_available=true" -ForegroundColor Green
+        } else {
+            Write-Host "  WARNING: osrm_available=$($health.osrm_available) — OSRM may still be starting." -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host "`n==> Skipping OSRM routing service deployment (-SkipOsrm)" -ForegroundColor Yellow
+}
