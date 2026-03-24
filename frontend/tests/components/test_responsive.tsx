@@ -12,6 +12,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import NavBar from "@/components/Layout/NavBar";
 import HomePage from "@/pages/HomePage";
+import FilterPanel from "@/components/ActivityList/FilterPanel";
+import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
+import SyncStatus from "@/components/SyncStatus";
 import { useAppStore } from "@/store";
 
 // Save the original matchMedia set by setup.ts so we can restore it
@@ -194,5 +197,161 @@ describe("HomePage — mobile responsive", () => {
     );
     const mapBtn = screen.getByText("View Map");
     expect(mapBtn).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FilterPanel — collapsible on mobile
+// ---------------------------------------------------------------------------
+
+describe("FilterPanel — mobile responsive", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  const noopFilters = { sport_type: undefined, start_date: undefined, end_date: undefined };
+  const noop = () => {};
+
+  it("shows collapsed toggle button on mobile, content hidden", () => {
+    mockMobile();
+    render(<FilterPanel filters={noopFilters} onFiltersChange={noop} />);
+
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    expect(toggle).toBeInTheDocument();
+
+    // Filter controls should not be visible when collapsed
+    expect(screen.queryByText("Sport Type")).not.toBeInTheDocument();
+  });
+
+  it("expands filter content when toggle is clicked on mobile", () => {
+    mockMobile();
+    render(<FilterPanel filters={noopFilters} onFiltersChange={noop} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    // Filter controls should now be visible
+    expect(screen.getByText("Sport Type")).toBeVisible();
+    expect(screen.getByText("Clear")).toBeVisible();
+  });
+
+  it("shows filter content immediately on desktop (no toggle)", () => {
+    mockDesktop();
+    render(<FilterPanel filters={noopFilters} onFiltersChange={noop} />);
+
+    // No toggle button on desktop
+    expect(screen.queryByRole("button", { name: /filters/i })).not.toBeInTheDocument();
+
+    // Filter controls visible immediately
+    expect(screen.getByText("Sport Type")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CoverageSummary — collapsible neighborhood table on mobile
+// ---------------------------------------------------------------------------
+
+describe("CoverageSummary — mobile responsive", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  const mockCity = {
+    id: 1,
+    name: "Seattle",
+    coverage_percentage: 6.5,
+    streets_traveled: 100,
+    streets_total: 1500,
+    distance_traveled_m: 50000,
+    distance_total_m: 800000,
+  };
+
+  const mockNeighborhoods = [
+    { id: 1, name: "Capitol Hill", coverage_percentage: 75.2, streets_traveled: 100, streets_total: 133 },
+    { id: 2, name: "Ballard", coverage_percentage: 12.0, streets_traveled: 20, streets_total: 167 },
+  ];
+
+  it("hides neighborhood table by default on mobile", () => {
+    mockMobile();
+    render(<CoverageSummary city={mockCity} neighborhoods={mockNeighborhoods} />);
+
+    // Should show collapsible button
+    expect(screen.getByText(/Neighborhoods \(2\)/)).toBeInTheDocument();
+
+    // Table rows should NOT be in the DOM
+    expect(screen.queryByText("Capitol Hill")).not.toBeInTheDocument();
+  });
+
+  it("expands neighborhood table when button clicked on mobile", () => {
+    mockMobile();
+    render(<CoverageSummary city={mockCity} neighborhoods={mockNeighborhoods} />);
+
+    fireEvent.click(screen.getByText(/Neighborhoods \(2\)/));
+
+    // Table rows should now be visible
+    expect(screen.getByText("Capitol Hill")).toBeVisible();
+    expect(screen.getByText("Ballard")).toBeVisible();
+  });
+
+  it("shows neighborhood table immediately on desktop", () => {
+    mockDesktop();
+    render(<CoverageSummary city={mockCity} neighborhoods={mockNeighborhoods} />);
+
+    // No toggle button, table visible immediately
+    expect(screen.queryByText(/Neighborhoods \(\d+\)/)).not.toBeInTheDocument();
+    expect(screen.getByText("Capitol Hill")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SyncStatus — compact on mobile
+// ---------------------------------------------------------------------------
+
+describe("SyncStatus — mobile responsive", () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify({ status: "idle" }), { status: 200 })),
+  );
+
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+    fetchSpy.mockClear();
+  });
+
+  beforeEach(() => {
+    useAppStore.setState({
+      isAuthenticated: true,
+      syncStatus: {
+        status: "idle",
+        total_activities: 262,
+        imported_activities: 242,
+        matched_activities: 107,
+        last_sync_at: null,
+        error_message: null,
+      },
+    });
+  });
+
+  it("shows only status label on mobile (no counts)", () => {
+    mockMobile();
+    render(<SyncStatus />);
+
+    expect(screen.getByText("idle")).toBeInTheDocument();
+    expect(screen.queryByText(/imported/)).not.toBeInTheDocument();
+  });
+
+  it("shows full status with counts on desktop", () => {
+    mockDesktop();
+    render(<SyncStatus />);
+
+    expect(screen.getByText("idle")).toBeInTheDocument();
+    expect(screen.getByText(/242\/262 imported/)).toBeInTheDocument();
   });
 });
