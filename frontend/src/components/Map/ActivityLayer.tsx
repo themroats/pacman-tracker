@@ -63,7 +63,7 @@ export default function ActivityLayer({ data, onFeatureClick, color, autoFit = t
           const geojsonLayer = L.geoJSON(data);
           const bounds = geojsonLayer.getBounds();
           if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [20, 20] });
+            map.fitBounds(bounds, { padding: [20, 20], maxZoom: 13 });
             hasFitted.current = true;
             onFit?.();
           }
