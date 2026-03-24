@@ -6,6 +6,7 @@
  */
 
 import type { TimelineEntry } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface TimelineChartProps {
   timeline: TimelineEntry[];
@@ -16,6 +17,7 @@ const CHART_HEIGHT = 200;
 const PADDING = { top: 20, right: 20, bottom: 40, left: 50 };
 
 export default function TimelineChart({ timeline }: TimelineChartProps) {
+  const isMobile = useIsMobile();
   if (timeline.length === 0) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#9ca3af" }}>
@@ -42,7 +44,7 @@ export default function TimelineChart({ timeline }: TimelineChartProps) {
     <div style={{ overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        style={{ width: "100%", maxWidth: CHART_WIDTH }}
+        style={{ width: "100%", maxWidth: isMobile ? undefined : CHART_WIDTH }}
       >
         {/* Grid lines */}
         {yTicks.map((tick) => (

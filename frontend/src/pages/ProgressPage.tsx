@@ -12,6 +12,7 @@ import StatsOverview from "@/components/ProgressTimeline/StatsOverview";
 import { progressApi } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
 import { useAppStore } from "@/store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type {
   OverallStatsResponse,
   Milestone,
@@ -21,6 +22,7 @@ import type {
 export default function ProgressPage() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
 
   // Redirect if not authenticated
@@ -65,7 +67,7 @@ export default function ProgressPage() {
   }, [selectedCityId]);
 
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem 1rem" }}>
+    <div style={{ maxWidth: "900px", margin: "0 auto", padding: isMobile ? "1rem 0.75rem" : "2rem 1rem" }}>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem" }}>
         Progress Timeline
       </h1>

@@ -5,7 +5,9 @@
  */
 
 
+import { useState } from "react";
 import type { NeighborhoodCoverage } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface CityData {
   id: number;
@@ -35,6 +37,8 @@ export default function CoverageSummary({
   neighborhoods,
   onNeighborhoodClick,
 }: CoverageSummaryProps) {
+  const isMobile = useIsMobile();
+  const [tableOpen, setTableOpen] = useState(!isMobile);
   if (!city) {
     return (
       <div style={{ padding: "1rem" }}>
@@ -88,7 +92,33 @@ export default function CoverageSummary({
       </div>
 
       {/* Neighborhood table */}
-      <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Neighborhoods</h3>
+      {isMobile ? (
+        <button
+          onClick={() => setTableOpen((v) => !v)}
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0.5rem 0",
+            background: "none",
+            border: "none",
+            borderTop: "1px solid #e5e7eb",
+            cursor: "pointer",
+            fontSize: "1rem",
+            fontWeight: 600,
+            color: "#111",
+            minHeight: 44,
+          }}
+        >
+          <span>Neighborhoods ({sorted.length})</span>
+          <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>{tableOpen ? "▲ Hide" : "▼ Show"}</span>
+        </button>
+      ) : (
+        <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Neighborhoods</h3>
+      )}
+      {tableOpen && (
+      <div style={{ overflowX: isMobile ? "auto" : undefined }}>
       <table
         style={{
           width: "100%",
@@ -126,6 +156,8 @@ export default function CoverageSummary({
           ))}
         </tbody>
       </table>
+      </div>
+      )}
     </div>
   );
 }

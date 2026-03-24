@@ -3,6 +3,7 @@
  */
 
 import { type CSSProperties } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export interface LayerToggle {
   key: string;
@@ -37,11 +38,19 @@ const rowStyle: CSSProperties = {
   gap: "6px",
   cursor: "pointer",
   userSelect: "none",
+  minHeight: "44px",
 };
 
 export default function LayerToggles({ layers, onToggle }: LayerTogglesProps) {
+  const isMobile = useIsMobile();
+
+  const responsivePanelStyle: CSSProperties = {
+    ...panelStyle,
+    ...(isMobile ? { bottom: 12, left: 12, right: "auto", fontSize: "0.75rem", padding: "6px 8px" } : {}),
+  };
+
   return (
-    <div style={panelStyle}>
+    <div style={responsivePanelStyle}>
       {layers.map((l) => (
         <label key={l.key} style={rowStyle}>
           <input

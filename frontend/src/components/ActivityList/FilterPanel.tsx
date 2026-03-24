@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import type { ActivityFilters } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const SPORT_TYPES = ["All", "Run", "Walk", "Ride", "Hike"];
 
@@ -13,6 +14,8 @@ interface FilterPanelProps {
 }
 
 export default function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
+  const isMobile = useIsMobile();
+  const [isOpen, setIsOpen] = useState(!isMobile);
   const [localStartDate, setLocalStartDate] = useState(filters.start_date || "");
   const [localEndDate, setLocalEndDate] = useState(filters.end_date || "");
 
@@ -23,15 +26,36 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
   }, [filters.start_date, filters.end_date]);
 
   return (
+    <div>
+      {isMobile && (
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          aria-label={isOpen ? "Hide filters" : "Show filters"}
+          style={{
+            padding: "0.5rem 1rem",
+            background: "#fff",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            border: "1px solid #e5e7eb",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+            marginBottom: isOpen ? "0.5rem" : 0,
+            minHeight: 44,
+          }}
+        >
+          {isOpen ? "▲ Hide Filters" : "▼ Filters"}
+        </button>
+      )}
+      {isOpen && (
     <div
       style={{
-        padding: "1rem",
+        padding: isMobile ? "0.75rem" : "1rem",
         background: "#fff",
         borderRadius: "8px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
         display: "flex",
         flexWrap: "wrap",
-        gap: "1rem",
+        gap: isMobile ? "0.5rem" : "1rem",
         alignItems: "flex-end",
       }}
     >
@@ -106,6 +130,8 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
       >
         Clear
       </button>
+    </div>
+      )}
     </div>
   );
 }

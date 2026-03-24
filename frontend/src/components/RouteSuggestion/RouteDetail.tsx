@@ -5,6 +5,7 @@
  */
 
 import type { RouteSegment, GeoJSONLineString } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface RouteInfo {
   id: number;
@@ -28,6 +29,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function RouteDetail({ route, segments, message }: RouteDetailProps) {
+  const isMobile = useIsMobile();
   if (message && !route) {
     return (
       <div style={{ padding: "1rem", color: "#6b7280" }}>

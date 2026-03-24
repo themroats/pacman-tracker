@@ -6,6 +6,7 @@
  */
 
 import type { OverallStatsResponse } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface StatsOverviewProps {
   stats: OverallStatsResponse;
@@ -16,13 +17,14 @@ function formatNumber(n: number): string {
 }
 
 export default function StatsOverview({ stats }: StatsOverviewProps) {
+  const isMobile = useIsMobile();
   return (
     <div>
       {/* Top-level stats */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
           gap: "1rem",
           marginBottom: "1.5rem",
         }}

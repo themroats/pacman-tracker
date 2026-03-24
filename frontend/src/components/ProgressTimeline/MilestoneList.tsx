@@ -6,6 +6,7 @@
  */
 
 import type { Milestone } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface MilestoneListProps {
   milestones: Milestone[];
@@ -19,6 +20,7 @@ const BADGE_COLORS: Record<string, string> = {
 };
 
 export default function MilestoneList({ milestones }: MilestoneListProps) {
+  const isMobile = useIsMobile();
   if (milestones.length === 0) {
     return (
       <div style={{ padding: "1rem", color: "#9ca3af", fontSize: "0.875rem" }}>
@@ -28,7 +30,7 @@ export default function MilestoneList({ milestones }: MilestoneListProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", padding: "0.5rem 0" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: isMobile ? "0.5rem" : "0.75rem", padding: "0.5rem 0" }}>
       {milestones.map((m) => {
         const color = BADGE_COLORS[m.label] ?? "#6b7280";
         const opacity = m.reached ? 1 : 0.35;
@@ -40,17 +42,17 @@ export default function MilestoneList({ milestones }: MilestoneListProps) {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              padding: "0.75rem",
+              padding: isMobile ? "0.5rem" : "0.75rem",
               borderRadius: "8px",
               border: `2px solid ${color}`,
               opacity,
-              minWidth: "100px",
+              minWidth: isMobile ? "80px" : "100px",
             }}
           >
             <div
               style={{
-                width: "40px",
-                height: "40px",
+                width: isMobile ? "32px" : "40px",
+                height: isMobile ? "32px" : "40px",
                 borderRadius: "50%",
                 backgroundColor: color,
                 display: "flex",

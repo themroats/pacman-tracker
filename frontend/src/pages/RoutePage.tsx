@@ -13,6 +13,7 @@ import RouteLayer from "@/components/Map/RouteLayer";
 import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import { routesApi, citiesApi } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAppStore } from "@/store";
 import type {
   RouteSuggestResponse,
@@ -37,6 +38,7 @@ interface RouteInfo {
 export default function RoutePage() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const neighborhoods = useAppStore((s) => s.neighborhoods);
   const setNeighborhoods = useAppStore((s) => s.setNeighborhoods);
   const { cities, isBootstrapping, bootstrapError } = useCityCatalog();
@@ -111,13 +113,22 @@ export default function RoutePage() {
   );
 
   return (
-    <div style={{ display: "flex", height: "100%", width: "100%", position: "absolute", inset: 0 }}>
+    <div style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      height: isMobile ? undefined : "100%",
+      width: "100%",
+      position: isMobile ? undefined : "absolute",
+      inset: isMobile ? undefined : 0,
+      overflow: isMobile ? "auto" : undefined,
+    }}>
       {/* Sidebar */}
       <div
         style={{
-          width: "380px",
+          width: isMobile ? "100%" : "380px",
           overflowY: "auto",
-          borderRight: "1px solid #e5e7eb",
+          borderRight: isMobile ? undefined : "1px solid #e5e7eb",
+          borderBottom: isMobile ? "1px solid #e5e7eb" : undefined,
           display: "flex",
           flexDirection: "column",
         }}
@@ -165,7 +176,7 @@ export default function RoutePage() {
       </div>
 
       {/* Map */}
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: isMobile ? undefined : 1, position: "relative", height: isMobile ? "60vh" : undefined }}>
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={DEFAULT_ZOOM}

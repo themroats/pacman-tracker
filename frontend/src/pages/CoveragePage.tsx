@@ -21,6 +21,7 @@ import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
 import { useAppStore } from "@/store";
 import { citiesApi, coverageApi, activitiesApi, syncApi, ApiClientError } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type {
   CityCoverageResponse,
   GeoJSONFeatureCollection,
@@ -61,6 +62,7 @@ function buildCoverageProgressMessage(status: SyncStatusResponse): string | null
 
 export default function CoveragePage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const {
     isAuthenticated,
     neighborhoods,
@@ -281,16 +283,25 @@ export default function CoveragePage() {
   }, [coverageJobRunning, fetchCoverageStatus, selectedCityId]);
 
   return (
-    <div style={{ display: "flex", height: "100%", width: "100%", position: "absolute", inset: 0 }}>
+    <div style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      height: isMobile ? undefined : "100%",
+      width: "100%",
+      position: isMobile ? undefined : "absolute",
+      inset: isMobile ? undefined : 0,
+      overflow: isMobile ? "auto" : undefined,
+    }}>
       {/* Sidebar */}
       <div
         style={{
-          width: "360px",
+          width: isMobile ? "100%" : "360px",
           flexShrink: 0,
-          borderRight: "1px solid #e5e7eb",
+          borderRight: isMobile ? undefined : "1px solid #e5e7eb",
+          borderBottom: isMobile ? "1px solid #e5e7eb" : undefined,
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: isMobile ? undefined : "hidden",
         }}
       >
         {/* Area selector */}
@@ -425,7 +436,7 @@ export default function CoveragePage() {
       </div>
 
       {/* Map */}
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: isMobile ? undefined : 1, position: "relative", height: isMobile ? "60vh" : undefined }}>
         <MapContainer
           center={[47.6062, -122.3321]}
           zoom={13}
