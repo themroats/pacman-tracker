@@ -41,6 +41,24 @@ vi.mock("leaflet", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock window.matchMedia (not implemented in JSDOM)
+// ---------------------------------------------------------------------------
+
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false, // default: desktop
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+// ---------------------------------------------------------------------------
 // Suppress act() warnings during tests
 // ---------------------------------------------------------------------------
 
