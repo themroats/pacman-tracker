@@ -355,3 +355,97 @@ describe("SyncStatus — mobile responsive", () => {
     expect(screen.getByText(/242\/262 imported/)).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// NavBar — menu closes on navigation
+// ---------------------------------------------------------------------------
+
+describe("NavBar — menu closes on navigate", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  beforeEach(() => {
+    useAppStore.setState({
+      isAuthenticated: true,
+      displayName: "Test User",
+      userId: 1,
+      accessToken: "test-token",
+    });
+  });
+
+  it("closes the mobile menu when a link is clicked (location changes)", () => {
+    mockMobile();
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <NavBar />
+      </MemoryRouter>,
+    );
+
+    // Open menu
+    fireEvent.click(screen.getByRole("button", { name: /menu/i }));
+    expect(screen.getByText("Coverage")).toBeVisible();
+
+    // Click Coverage link
+    fireEvent.click(screen.getByText("Coverage"));
+
+    // Re-render with new location to trigger the useEffect
+    rerender(
+      <MemoryRouter initialEntries={["/coverage"]}>
+        <NavBar />
+      </MemoryRouter>,
+    );
+
+    // Menu should be closed — links not in DOM
+    expect(screen.queryByText("Routes")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useIsMobile — matchMedia change event
+// ---------------------------------------------------------------------------
+
+describe("useIsMobile — responds to matchMedia changes", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  it("updates when matchMedia fires a change event", async () => {
+    // Start as desktop
+    let changeHandler: ((e: { matches: boolean }) => void) | null = null;
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn().mockImplementation((_event: string, handler: (e: { matches: boolean }) => void) => {
+          changeHandler = handler;
+        }),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    const { useIsMobile } = await import("@/hooks/useIsMobile");
+    const { renderHook, act } = await import("@testing-library/react");
+    const { result } = renderHook(() => useIsMobile());
+
+    expect(result.current).toBe(false);
+
+    // Simulate orientation change to mobile
+    await act(async () => {
+      changeHandler?.({ matches: true });
+    });
+
+    expect(result.current).toBe(true);
+  });
+});

@@ -80,7 +80,7 @@ export default function RouteDetail({ route, segments, message }: RouteDetailPro
       {segments.length > 0 && (
         <>
           <h4 style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>Segments</h4>
-          <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+          <div style={{ maxHeight: isMobile ? "150px" : "200px", overflowY: "auto" }}>
             {segments.map((s, i) => (
               <div
                 key={i}
