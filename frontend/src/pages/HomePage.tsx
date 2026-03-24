@@ -5,18 +5,20 @@
 import { useAppStore } from "@/store";
 import { authApi } from "@/api/client";
 import { useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function HomePage() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const displayName = useAppStore((s) => s.displayName);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   if (isAuthenticated) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
         <h1>Strava Street Mapper</h1>
         <p>Welcome back{displayName ? `, ${displayName}` : ""}!</p>
-        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", justifyContent: "center" }}>
+        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap", flexDirection: isMobile ? "column" : "row", alignItems: "center" }}>
           <button onClick={() => navigate("/map")} style={btnStyle}>
             View Map
           </button>

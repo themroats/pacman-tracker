@@ -5,6 +5,7 @@
 
 import { useAppStore } from "@/store";
 import type { Toast } from "@/store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const typeColors: Record<Toast["type"], { bg: string; border: string; text: string }> = {
   error: { bg: "#fef2f2", border: "#fca5a5", text: "#dc2626" },
@@ -16,6 +17,7 @@ const typeColors: Record<Toast["type"], { bg: string; border: string; text: stri
 export default function ToastContainer() {
   const toasts = useAppStore((s) => s.toasts);
   const removeToast = useAppStore((s) => s.removeToast);
+  const isMobile = useIsMobile();
 
   if (toasts.length === 0) return null;
 
@@ -23,13 +25,14 @@ export default function ToastContainer() {
     <div
       style={{
         position: "fixed",
-        bottom: "1rem",
-        right: "1rem",
+        bottom: isMobile ? "0.5rem" : "1rem",
+        right: isMobile ? "0.5rem" : "1rem",
+        left: isMobile ? "0.5rem" : undefined,
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
         gap: "0.5rem",
-        maxWidth: "24rem",
+        maxWidth: isMobile ? undefined : "24rem",
       }}
     >
       {toasts.map((toast) => {

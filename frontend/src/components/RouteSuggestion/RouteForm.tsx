@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import type { CityListItem, NeighborhoodListItem } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface RouteFormProps {
   cities: CityListItem[];
@@ -55,6 +56,7 @@ export default function RouteForm({
   }, [startPoint]);
 
   const [validationError, setValidationError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +119,7 @@ export default function RouteForm({
         />
       </label>
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", flexDirection: isMobile ? "column" : "row" }}>
         <label style={{ ...labelStyle, flex: 1 }}>
           Longitude
           <input type="text" value={lng} onChange={(e) => setLng(e.target.value)} style={inputStyle} />

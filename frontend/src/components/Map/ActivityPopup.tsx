@@ -4,6 +4,7 @@
 
 import { Popup } from "react-leaflet";
 import type { ActivityDetail } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ActivityPopupProps {
   activity: ActivityDetail | null;
@@ -32,11 +33,12 @@ function formatPace(paceMinPerKm: number | null | undefined): string {
 }
 
 export default function ActivityPopup({ activity, position, onClose }: ActivityPopupProps) {
+  const isMobile = useIsMobile();
   if (!activity || !position) return null;
 
   return (
-    <Popup position={position} eventHandlers={{ remove: onClose }}>
-      <div style={{ minWidth: 200 }}>
+    <Popup position={position} eventHandlers={{ remove: onClose }} autoPan autoPanPadding={isMobile ? [20, 20] : [50, 50]}>
+      <div style={{ minWidth: isMobile ? 160 : 200, maxWidth: isMobile ? 260 : "none" }}>
         <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem" }}>{activity.name}</h3>
         <p style={{ margin: "0.25rem 0", color: "#666", fontSize: "0.85rem" }}>
           {activity.sport_type} • {new Date(activity.start_date).toLocaleDateString()}

@@ -6,6 +6,8 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { useAppStore } from "@/store";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { path: "/map", label: "Map" },
@@ -16,9 +18,16 @@ const NAV_ITEMS = [
 
 export default function NavBar() {
   const location = useLocation();
+  const isMobile = useIsMobile();
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const displayName = useAppStore((s) => s.displayName);
   const logout = useAppStore((s) => s.logout);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Close menu on navigation
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <nav
@@ -31,6 +40,7 @@ export default function NavBar() {
         backgroundColor: "#1f2937",
         color: "#fff",
         fontSize: "0.875rem",
+        position: "relative",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
@@ -46,7 +56,9 @@ export default function NavBar() {
           Street Mapper
         </Link>
 
-        {isAuthenticated &&
+        {/* Desktop: inline links */}
+        {!isMobile &&
+          isAuthenticated &&
           NAV_ITEMS.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
@@ -66,10 +78,10 @@ export default function NavBar() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-        {isAuthenticated && displayName && (
+        {!isMobile && isAuthenticated && displayName && (
           <span style={{ color: "#9ca3af" }}>{displayName}</span>
         )}
-        {isAuthenticated && (
+        {!isMobile && isAuthenticated && (
           <button
             onClick={logout}
             style={{
@@ -85,7 +97,92 @@ export default function NavBar() {
             Logout
           </button>
         )}
+
+        {/* Mobile: hamburger button */}
+        {isMobile && isAuthenticated && (
+          <button
+            onClick={() => setIsMenuOpen((v) => !v)}
+            aria-label="Menu"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              padding: "8px",
+              minWidth: 44,
+              minHeight: 44,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.5rem",
+              lineHeight: 1,
+            }}
+          >
+            {isMenuOpen ? "✕" : "☰"}
+          </button>
+        )}
       </div>
+
+      {/* Mobile dropdown menu */}
+      {isMobile && isMenuOpen && isAuthenticated && (
+        <div
+          style={{
+            position: "absolute",
+            top: "48px",
+            left: 0,
+            right: 0,
+            backgroundColor: "#1f2937",
+            zIndex: 2000,
+            display: "flex",
+            flexDirection: "column",
+            padding: "0.5rem 0",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          {NAV_ITEMS.map((item) => {
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                style={{
+                  color: isActive ? "#60a5fa" : "#d1d5db",
+                  textDecoration: "none",
+                  fontWeight: isActive ? 600 : 400,
+                  padding: "0.625rem 1rem",
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  borderBottom: "1px solid #374151",
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+          {displayName && (
+            <span style={{ color: "#9ca3af", padding: "0.5rem 1rem", fontSize: "0.8125rem", borderBottom: "1px solid #374151" }}>
+              {displayName}
+            </span>
+          )}
+          <button
+            onClick={logout}
+            style={{
+              background: "none",
+              border: "none",
+              borderTop: "1px solid #374151",
+              color: "#d1d5db",
+              padding: "0.75rem 1rem",
+              textAlign: "left",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              minHeight: 44,
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

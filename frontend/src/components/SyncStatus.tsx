@@ -5,8 +5,10 @@
 import { useEffect } from "react";
 import { syncApi } from "@/api/client";
 import { useAppStore } from "@/store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function SyncStatus() {
+  const isMobile = useIsMobile();
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const storeSyncStatus = useAppStore((s) => s.syncStatus);
   const setSyncStatus = useAppStore((s) => s.setSyncStatus);
@@ -58,14 +60,14 @@ export default function SyncStatus() {
   return (
     <div
       style={{
-        padding: "0.5rem 1rem",
+        padding: isMobile ? "0.35rem 0.5rem" : "0.5rem 1rem",
         background: "#fff",
         borderRadius: "6px",
         boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
         display: "flex",
         alignItems: "center",
-        gap: "0.75rem",
-        fontSize: "0.85rem",
+        gap: isMobile ? "0.4rem" : "0.75rem",
+        fontSize: isMobile ? "0.75rem" : "0.85rem",
       }}
     >
       <span
@@ -78,10 +80,12 @@ export default function SyncStatus() {
         }}
       />
       <span style={{ textTransform: "capitalize" }}>{status}</span>
-      <span style={{ color: "#888" }}>
-        {imported_activities}/{total_activities} imported
-        {matched_activities > 0 && ` • ${matched_activities} matched`}
-      </span>
+      {!isMobile && (
+        <span style={{ color: "#888" }}>
+          {imported_activities}/{total_activities} imported
+          {matched_activities > 0 && ` \u2022 ${matched_activities} matched`}
+        </span>
+      )}
     </div>
   );
 }

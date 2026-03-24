@@ -11,9 +11,11 @@ import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import SyncStatus from "@/components/SyncStatus";
 import { activitiesApi } from "@/api/client";
 import { useAppStore } from "@/store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { ActivityDetail } from "@/types/api";
 
 export default function MapPage() {
+  const isMobile = useIsMobile();
   const filters = useAppStore((s) => s.filters);
   const setFilters = useAppStore((s) => s.setFilters);
   const activitiesGeoJSON = useAppStore((s) => s.activitiesGeoJSON);
@@ -24,6 +26,7 @@ export default function MapPage() {
 
   const [selectedActivity, setSelectedActivity] = useState<ActivityDetail | null>(null);
   const [popupPosition, setPopupPosition] = useState<[number, number] | null>(null);
+  const [hasFittedActivities, setHasFittedActivities] = useState(false);
 
   const [showActivities, setShowActivities] = useState(true);
   const mapLayers: LayerToggle[] = [
@@ -71,21 +74,21 @@ export default function MapPage() {
   );
 
   return (
-    <div style={{ height: "100vh", width: "100%", position: "relative" }}>
+    <div style={{ height: "100%", width: "100%", position: "relative", overflow: "hidden" }}>
       {/* Filter panel overlay */}
-      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 1000, maxWidth: "90%" }}>
+      <div style={{ position: "absolute", top: 10, left: 50, zIndex: 1001, maxWidth: isMobile ? "calc(100% - 60px)" : "80%" }}>
         <FilterPanel filters={filters} onFiltersChange={setFilters} />
       </div>
 
       {/* Sync status overlay */}
-      <div style={{ position: "absolute", top: 10, right: 10, zIndex: 1000 }}>
+      <div style={{ position: "absolute", top: isMobile ? 54 : 10, right: 10, zIndex: isMobile ? 999 : 1000, maxWidth: isMobile ? "calc(100% - 20px)" : undefined }}>
         <SyncStatus />
       </div>
 
       {/* Map */}
       <MapView>
         {showActivities && (
-          <ActivityLayer data={activitiesGeoJSON} onFeatureClick={handleFeatureClick} />
+          <ActivityLayer data={activitiesGeoJSON} onFeatureClick={handleFeatureClick} autoFit={!hasFittedActivities} onFit={() => setHasFittedActivities(true)} />
         )}
         <ActivityPopup
           activity={selectedActivity}

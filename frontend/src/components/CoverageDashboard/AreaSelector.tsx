@@ -6,6 +6,7 @@
 
 import React from "react";
 import type { CityListItem, NeighborhoodListItem } from "@/types/api";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface AreaSelectorProps {
   cities: CityListItem[];
@@ -26,17 +27,20 @@ export default function AreaSelector({
   onNeighborhoodChange,
   citiesLoading = false,
 }: AreaSelectorProps) {
+  const isMobile = useIsMobile();
+
   const selectStyle: React.CSSProperties = {
     padding: "6px 10px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     fontSize: "0.875rem",
-    minWidth: "160px",
+    minWidth: isMobile ? undefined : "160px",
+    width: isMobile ? "100%" : undefined,
     backgroundColor: "#fff",
   };
 
   return (
-    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: "0.75rem", alignItems: isMobile ? "stretch" : "center", flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
       {/* City selector */}
       <label style={{ fontSize: "0.875rem", fontWeight: 500 }}>
         City
