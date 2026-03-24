@@ -22,9 +22,11 @@ interface ActivityLayerProps {
   color?: string;
   /** Auto-fit map to data bounds when data changes. Default true. */
   autoFit?: boolean;
+  /** Called after fitBounds is performed. */
+  onFit?: () => void;
 }
 
-export default function ActivityLayer({ data, onFeatureClick, color, autoFit = true }: ActivityLayerProps) {
+export default function ActivityLayer({ data, onFeatureClick, color, autoFit = true, onFit }: ActivityLayerProps) {
   const map = useMap();
 
   const style = useCallback((feature: any): PathOptions => {
@@ -63,6 +65,7 @@ export default function ActivityLayer({ data, onFeatureClick, color, autoFit = t
           if (bounds.isValid()) {
             map.fitBounds(bounds, { padding: [20, 20] });
             hasFitted.current = true;
+            onFit?.();
           }
         }
       } catch {
