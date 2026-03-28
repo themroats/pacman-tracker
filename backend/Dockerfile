@@ -1,10 +1,10 @@
 FROM python:3.12-slim
 
-# Install SpatiaLite and spatial dependencies
+# Install PostgreSQL client and spatial dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libsqlite3-mod-spatialite \
-        libsqlite3-0 \
+        libpq-dev \
+        postgresql-client \
         libproj-dev \
         libgeos-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -16,8 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Use /home for persistent SQLite storage on Azure App Service
-ENV DATABASE_URL=sqlite:////home/data/pacman.db
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 

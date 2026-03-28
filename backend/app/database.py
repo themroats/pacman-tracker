@@ -1,12 +1,11 @@
 """
-Database engine, session management, and SpatiaLite extension loading.
+Database engine, session management, and PostGIS extension initialization.
 """
 
 import logging
 from collections.abc import Generator
-from pathlib import Path
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -20,71 +19,76 @@ class Base(DeclarativeBase):
     pass
 
 
-def _load_spatialite(dbapi_conn, connection_record):
-    """Load the SpatiaLite extension on every new SQLite connection."""
-    dbapi_conn.enable_load_extension(True)
-    for lib_name in ("mod_spatialite", "libspatialite"):
-        try:
-            dbapi_conn.load_extension(lib_name)
-            break
-        except Exception:
-            continue
-    else:
+def _init_postgis(engine) -> None:
+    """Ensure the PostGIS extension is available on the connected database."""
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        conn.commit()
+
+
+def _validate_postgis(engine) -> None:
+    """Verify PostgreSQL connection and PostGIS extension at startup (FR-010)."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT PostGIS_Version()"))
+            version = result.scalar()
+            logger.info("PostGIS version: %s", version)
+    except Exception as exc:
         raise RuntimeError(
-            "SpatiaLite extension not found. "
-            "Install SpatiaLite (e.g. libsqlite3-mod-spatialite) to enable geospatial features."
+            f"Database startup validation failed: {exc}. "
+            "Ensure PostgreSQL is running and PostGIS extension is installed."
+        ) from exc
+
+
+def _get_azure_token_creator(url: str):
+    """Return a connection creator that uses Azure Managed Identity tokens."""
+    import psycopg2
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+
+    def _creator():
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        token = credential.get_token(
+            "https://ossrdbms-aad.database.windows.net/.default"
         )
-    dbapi_conn.enable_load_extension(False)
+        conn = psycopg2.connect(
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            dbname=parsed.path.lstrip("/"),
+            user=parsed.username,
+            password=token.token,
+            sslmode="require",
+        )
+        return conn
 
-
-def _enable_foreign_keys(dbapi_conn, connection_record):
-    """Enable SQLite foreign-key constraint enforcement."""
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA foreign_keys = ON")
-    cursor.close()
-
-
-def _ensure_sqlite_parent_dir(url: str) -> None:
-    """Create the parent directory for a file-based SQLite database if needed."""
-    if not url.startswith("sqlite:///") or url == "sqlite:///:memory:":
-        return
-
-    db_path = url.replace("sqlite:///", "", 1)
-    if not db_path:
-        return
-
-    # SQLAlchemy uses four slashes for absolute paths: sqlite:////home/data/app.db
-    if url.startswith("sqlite:////") and not db_path.startswith("/"):
-        db_path = f"/{db_path}"
-
-    parent = Path(db_path).expanduser().resolve().parent
-    parent.mkdir(parents=True, exist_ok=True)
+    return _creator
 
 
 def create_db_engine(database_url: str | None = None):
     """
-    Create a SQLAlchemy engine.
-
-    For SQLite URLs, registers a listener to load SpatiaLite on every connect.
+    Create a SQLAlchemy engine for PostgreSQL + PostGIS.
     """
     settings = get_settings()
     url = database_url or settings.database_url
 
-    connect_args = {}
-    if url.startswith("sqlite"):
-        connect_args["check_same_thread"] = False
-        _ensure_sqlite_parent_dir(url)
+    engine_kwargs: dict = {
+        "echo": False,
+        "pool_size": settings.pool_size,
+        "max_overflow": settings.max_overflow,
+        "pool_pre_ping": True,
+    }
 
-    engine = create_engine(url, connect_args=connect_args, echo=False)
+    # Use Azure Managed Identity when connecting to Azure PG (no password in URL)
+    if settings.use_azure_identity and "database.azure.com" in url:
+        engine_kwargs["creator"] = _get_azure_token_creator(url)
 
-    if url.startswith("sqlite"):
-        event.listen(engine, "connect", _load_spatialite)
-        event.listen(engine, "connect", _enable_foreign_keys)
-        # Initialise SpatiaLite metadata (idempotent)
-        with engine.connect() as conn:
-            conn.execute(text("SELECT InitSpatialMetaData(1)"))
-            conn.commit()
+    engine = create_engine(url, **engine_kwargs)
 
+    _init_postgis(engine)
+    _validate_postgis(engine)
     return engine
 
 
