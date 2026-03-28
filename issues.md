@@ -106,6 +106,35 @@ The automatic city bootstrap (`AUTO_LOAD_CITIES_ON_EMPTY_DB=true`) downloads OSM
 
 **Possible solutions** (not mutually exclusive):
 
+---
+
+## Issue 4: Komoot API integration for zero-tap Coros watch route sync
+
+**Type**: Enhancement
+**Priority**: Low
+**Labels**: `enhancement`, `routes`, `integration`
+
+**Description**:
+Currently, getting a generated route onto a Coros watch requires: Export GPX → open downloaded file on phone → "Open in Coros" → syncs to watch (3 manual taps). Komoot has a partner API with a `tour-upload` scope that could eliminate all manual steps.
+
+**How it would work**:
+1. User links their Komoot account via OAuth2 (one-time setup)
+2. User links Komoot to Coros in the COROS app (one-time setup)
+3. After generating a route, user taps "Send to Watch"
+4. Backend pushes the route to Komoot as a planned tour via `POST /tours/`
+5. Komoot auto-syncs planned tours to Coros → Coros syncs to watch
+6. Zero manual file handling
+
+**Blocker**:
+- Komoot API is partner-only (no self-serve developer program)
+- Requires contacting `partner@komoot.de` and signing a partner contract
+- API docs: `https://static.komoot.de/doc/external-api/v007/index.html`
+- For a personal project, approval is uncertain
+
+**Alternative if Komoot access is denied**:
+- Keep the current GPX download flow (works, just 3 taps)
+- Monitor Coros for a public developer API (none as of March 2026)
+
 1. **Run bootstrap locally against Azure DB** — Point `DATABASE_URL` at the Azure PG server and run `load_cities.py` from a local machine. Heavy CPU/download happens locally; only DB inserts go over the wire. Simplest, no code changes.
 
 2. **Seed from a pg_dump** — Bootstrap into local Docker Compose PG, then `pg_dump` the city/neighborhood/street tables and `pg_restore` to Azure. Fastest transfer, no OSM processing on Azure.
