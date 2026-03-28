@@ -6,6 +6,8 @@
 
 import type { RouteSegment, GeoJSONLineString } from "@/types/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { routesApi } from "@/api/client";
+import { useState } from "react";
 
 interface RouteInfo {
   id: number;
@@ -28,8 +30,21 @@ function formatDuration(seconds: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** Download a GPX file. On iOS, tapping the download triggers "Open in…" with OsmAnd/Coros. */
+async function shareOrDownloadGpx(routeId: number): Promise<void> {
+  const file = await routesApi.fetchGpx(routeId);
+
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function RouteDetail({ route, segments, message }: RouteDetailProps) {
   const isMobile = useIsMobile();
+  const [exporting, setExporting] = useState(false);
   if (message && !route) {
     return (
       <div style={{ padding: "1rem", color: "#6b7280" }}>
@@ -75,6 +90,37 @@ export default function RouteDetail({ route, segments, message }: RouteDetailPro
           </div>
         </div>
       </div>
+
+      {/* Export GPX */}
+      <button
+        onClick={async () => {
+          if (!route) return;
+          setExporting(true);
+          try {
+            await shareOrDownloadGpx(route.id);
+          } catch {
+            // error is visible via global error handler
+          } finally {
+            setExporting(false);
+          }
+        }}
+        disabled={exporting}
+        style={{
+          width: "100%",
+          padding: "0.5rem",
+          marginBottom: "1rem",
+          background: "#4f46e5",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: exporting ? "wait" : "pointer",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          opacity: exporting ? 0.6 : 1,
+        }}
+      >
+        {exporting ? "Exporting…" : "📤 Export GPX"}
+      </button>
 
       {/* Segments */}
       {segments.length > 0 && (
