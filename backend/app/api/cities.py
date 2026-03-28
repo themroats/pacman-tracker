@@ -17,7 +17,7 @@ from geoalchemy2.shape import to_shape
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.main import AppError
+from app.errors import AppError
 from app.models.city import City
 from app.models.neighborhood import Neighborhood
 from app.models.user import User
