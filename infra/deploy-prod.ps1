@@ -316,7 +316,7 @@ if (-not $SkipBackend) {
                 CORS_ORIGINS="https://$frontendHost" `
                 AUTO_LOAD_CITIES_ON_EMPTY_DB=false `
                 USE_AZURE_IDENTITY=false `
-                $(if ($pgDatabaseUrl) { "DATABASE_URL=$pgDatabaseUrl" } else { "DATABASE_URL=" }) `
+                $(if ($pgDatabaseUrl) { "DATABASE_URL=$pgDatabaseUrl" }) `
                 WEBSITES_ENABLE_APP_SERVICE_STORAGE=true `
                 WEBSITES_PORT=8000 `
                 WEBSITES_CONTAINER_START_TIME_LIMIT=300 `
