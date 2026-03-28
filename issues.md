@@ -87,6 +87,39 @@ docker push pacmantrackercr.azurecr.io/osrm-backend:latest
 **Priority**: Low
 **Labels**: `tech-debt`, `frontend`
 
+---
+
+## Issue 5: City bootstrap overloads B1 App Service — need alternative seeding strategy
+
+**Type**: Enhancement
+**Priority**: High
+**Labels**: `enhancement`, `deployment`, `backend`
+
+**Description**:
+The automatic city bootstrap (`AUTO_LOAD_CITIES_ON_EMPTY_DB=true`) downloads OSM data and processes streets/neighborhoods in a background thread on startup. On the Azure B1 App Service tier, this consumes all available CPU and memory, making the API completely unresponsive (health check times out, 502/503 errors) for the entire duration of the bootstrap.
+
+**Observed behavior**:
+- `/health` and all API endpoints become unreachable within seconds of bootstrap starting
+- DB rows remain at 0 for minutes while OSM data downloads
+- App Service health check fails, container gets killed and restarted — creating a crash loop
+- Currently working around it by keeping `AUTO_LOAD_CITIES_ON_EMPTY_DB=false`
+
+**Possible solutions** (not mutually exclusive):
+
+1. **Run bootstrap locally against Azure DB** — Point `DATABASE_URL` at the Azure PG server and run `load_cities.py` from a local machine. Heavy CPU/download happens locally; only DB inserts go over the wire. Simplest, no code changes.
+
+2. **Seed from a pg_dump** — Bootstrap into local Docker Compose PG, then `pg_dump` the city/neighborhood/street tables and `pg_restore` to Azure. Fastest transfer, no OSM processing on Azure.
+
+3. **Throttle the bootstrap thread** — Add `time.sleep()` calls or batch-size limits in the bootstrap loop so it yields CPU back to uvicorn. Bootstrap takes longer but the API stays responsive. Could be as simple as sleeping 0.1s every N inserts.
+
+4. **Scale up temporarily** — `az webapp plan update --sku B2` before bootstrap, then `--sku B1` after. Costs a few cents for the hour, no code changes needed.
+
+5. **Run as a one-shot Azure Container Instance** — Spin up an ACI with the same Docker image but a different entrypoint (`python -m app.scripts.load_cities`), pointed at the Azure DB. Runs, loads data, self-terminates. No impact on the web server.
+
+6. **Offload to an Azure Function / WebJob** — Trigger bootstrap as a separate compute unit. More infrastructure but cleanly decoupled.
+
+**Recommendation**: Option 1 or 2 for immediate use; Option 3 as a long-term code fix to make auto-bootstrap safe on small tiers.
+
 **Description**:
 The OSRM availability check in `RoutePage.tsx` constructs its own URL by stripping `/api/v1` from `VITE_API_URL` and appending `/health`. This is fragile and was the cause of the "Route suggestions unavailable" banner showing on the deployed site even though OSRM was running.
 
