@@ -315,30 +315,19 @@ class RoutePlannerService:
         else:
             # Without a neighborhood filter we'd load 300k+ streets which is
             # too many for waypoint selection.  Narrow to a bbox around the
-            # start point (~2 km radius) using the R-tree spatial index
-            # kept as a SQL subquery to avoid materializing thousands of IDs.
-            from sqlalchemy import text as sa_text, column as sa_column
+            # start point (~2 km radius) using PostGIS GiST spatial index.
+            from geoalchemy2 import functions as gfunc
             from app.services.coverage import _approx_buffer_degrees
 
             pad = _approx_buffer_degrees(2000)  # ~2 km in degrees
-            rtree_subq = (
-                sa_text(
-                    "SELECT ROWID FROM SpatialIndex "
-                    "WHERE f_table_name = 'street_segments' "
-                    "AND f_geometry_column = 'geometry' "
-                    "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
-                )
-                .bindparams(
-                    minx=start_lng - pad,
-                    miny=start_lat - pad,
-                    maxx=start_lng + pad,
-                    maxy=start_lat + pad,
-                )
-                .columns(sa_column("ROWID"))
+            bbox = gfunc.ST_MakeEnvelope(
+                start_lng - pad, start_lat - pad,
+                start_lng + pad, start_lat + pad,
+                4326,
             )
             street_query = (
                 street_query
-                .filter(StreetSegment.id.in_(rtree_subq))
+                .filter(StreetSegment.geometry.intersects(bbox))
             )
 
         db_streets = street_query.all()
@@ -363,31 +352,21 @@ class RoutePlannerService:
             )
             cov_id_set = {r[0] for r in cov_rows}
         else:
-            # Use same R-tree bbox to scope the coverage lookup
-            from sqlalchemy import text as sa_text2, column as sa_col2
+            # Use same PostGIS bbox to scope the coverage lookup
+            from geoalchemy2 import functions as gfunc2
             from app.services.coverage import _approx_buffer_degrees as _abd2
             pad2 = _abd2(2000)
-            rtree_subq2 = (
-                sa_text2(
-                    "SELECT ROWID FROM SpatialIndex "
-                    "WHERE f_table_name = 'street_segments' "
-                    "AND f_geometry_column = 'geometry' "
-                    "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
-                )
-                .bindparams(
-                    minx=start_lng - pad2,
-                    miny=start_lat - pad2,
-                    maxx=start_lng + pad2,
-                    maxy=start_lat + pad2,
-                )
-                .columns(sa_col2("ROWID"))
+            bbox2 = gfunc2.ST_MakeEnvelope(
+                start_lng - pad2, start_lat - pad2,
+                start_lng + pad2, start_lat + pad2,
+                4326,
             )
             cov_rows = (
                 self.db.query(UserStreetCoverage.street_segment_id)
                 .join(StreetSegment, StreetSegment.id == UserStreetCoverage.street_segment_id)
                 .filter(
                     UserStreetCoverage.user_id == user_id,
-                    StreetSegment.id.in_(rtree_subq2),
+                    StreetSegment.geometry.intersects(bbox2),
                 )
                 .all()
             )
