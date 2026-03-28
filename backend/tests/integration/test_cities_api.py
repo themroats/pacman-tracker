@@ -14,9 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString, MultiPolygon, Polygon
-from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.models.city import City
@@ -24,76 +22,22 @@ from app.models.coverage import UserStreetCoverage
 from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
 from app.models.user import User
+from tests.integration.conftest import _make_test_session, _get_test_app as _get_base_app
 
 
 # ---------------------------------------------------------------------------
-# Self-contained test engine (avoids SQLite cross-thread errors)
+# Self-contained test engine
 # ---------------------------------------------------------------------------
-
-
-def _make_test_session():
-    """Create an in-memory SQLite session with SpatiaLite for integration tests."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    _spatialite_loaded = False
-
-    @event.listens_for(engine, "connect")
-    def _load_spatialite(dbapi_conn, connection_record):
-        nonlocal _spatialite_loaded
-        dbapi_conn.enable_load_extension(True)
-        for lib_name in ("mod_spatialite", "libspatialite"):
-            try:
-                dbapi_conn.load_extension(lib_name)
-                _spatialite_loaded = True
-                break
-            except Exception:
-                continue
-        dbapi_conn.enable_load_extension(False)
-
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("SELECT InitSpatialMetaData(1)"))
-            conn.commit()
-        except Exception:
-            pytest.skip("SpatiaLite extension not available")
-
-    if not _spatialite_loaded:
-        pytest.skip("SpatiaLite extension not available")
-
-    Base.metadata.create_all(bind=engine)
-    TestSession = sessionmaker(bind=engine, expire_on_commit=False)
-    return TestSession
 
 
 def _get_test_app():
-    """Create the FastAPI app with test DB override."""
-    from app.main import create_app
-
-    test_app = create_app()
-    TestSession = _make_test_session()
-
-    def override_get_db():
-        session = TestSession()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-    test_app.dependency_overrides[get_db] = override_get_db
-    return test_app, TestSession
+    """Wrap shared _get_test_app to return (app, SessionFactory, test_user) tuple."""
+    app, TestSession, test_user = _get_base_app()
+    return app, TestSession, test_user
 
 
-def _seed_data(session):
-    """Seed DB with city, neighborhood, street, user, and coverage."""
+def _seed_data(session, user):
+    """Seed DB with city, neighborhood, street, and coverage for the given user."""
     poly = Polygon([
         (-122.40, 47.55), (-122.25, 47.55), (-122.25, 47.65),
         (-122.40, 47.65), (-122.40, 47.55),
@@ -138,18 +82,6 @@ def _seed_data(session):
     session.add(street)
     session.flush()
 
-    user = User(
-        strava_athlete_id=12345,
-        display_name="Test Runner",
-        access_token_encrypted="tok",
-        refresh_token_encrypted="rtok",
-        token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
-        strava_scope="activity:read_all",
-        sync_status="idle",
-    )
-    session.add(user)
-    session.flush()
-
     cov = UserStreetCoverage(
         user_id=user.id,
         street_segment_id=street.id,
@@ -172,9 +104,9 @@ class TestListCities:
     """GET /cities -- list all supported cities."""
 
     def test_returns_cities_list(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        _seed_data(session)
+        _seed_data(session, test_user)
         session.close()
 
         with TestClient(app) as client:
@@ -191,7 +123,7 @@ class TestListCities:
         assert city["total_neighborhoods"] == 1
 
     def test_empty_database(self):
-        app, _ = _get_test_app()
+        app, _, _ = _get_test_app()
         with TestClient(app) as client:
             resp = client.get("/api/v1/cities")
         assert resp.status_code == 200
@@ -202,9 +134,9 @@ class TestListNeighborhoods:
     """GET /cities/{city_id}/neighborhoods -- neighborhoods with coverage."""
 
     def test_returns_neighborhoods(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         session.close()
 
@@ -219,9 +151,9 @@ class TestListNeighborhoods:
         assert "coverage_percentage" in n
 
     def test_nonexistent_city_returns_404(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        _seed_data(session)
+        _seed_data(session, test_user)
         session.close()
 
         with TestClient(app) as client:
@@ -233,9 +165,9 @@ class TestNeighborhoodBoundary:
     """GET /cities/{city_id}/neighborhoods/{id}/boundary -- GeoJSON."""
 
     def test_returns_geojson(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         n_id = entities["neighborhood"].id
         session.close()
@@ -247,9 +179,9 @@ class TestNeighborhoodBoundary:
         assert data["type"] in ("Feature", "MultiPolygon", "Polygon")
 
     def test_nonexistent_neighborhood_returns_404(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         session.close()
 
@@ -262,9 +194,9 @@ class TestNeighborhoodBoundaries:
     """GET /cities/{city_id}/neighborhoods/boundaries -- GeoJSON FeatureCollection."""
 
     def test_returns_feature_collection(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         session.close()
 
@@ -278,9 +210,9 @@ class TestNeighborhoodBoundaries:
         assert data["features"][0]["properties"]["name"] == "Capitol Hill"
 
     def test_nonexistent_city_returns_404(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        _seed_data(session)
+        _seed_data(session, test_user)
         session.close()
 
         with TestClient(app) as client:

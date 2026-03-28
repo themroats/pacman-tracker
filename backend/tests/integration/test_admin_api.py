@@ -1,24 +1,17 @@
 """Integration tests for manual bootstrap admin endpoints."""
 
 import os
-from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from app.services.city_bootstrap import reset_city_bootstrap_state
-
-
-@asynccontextmanager
-async def _noop_lifespan(app):
-    yield
+from tests.integration.conftest import _noop_lifespan
 
 
 def _create_app():
-    with patch("app.main.lifespan", _noop_lifespan):
-        from app.main import create_app
-
-        return create_app()
+    from app.main import create_app
+    return create_app(custom_lifespan=_noop_lifespan)
 
 
 def test_bootstrap_status_requires_token():

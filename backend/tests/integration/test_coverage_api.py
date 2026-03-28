@@ -14,9 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString, MultiPolygon, Polygon
-from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.models.city import City
@@ -24,76 +22,22 @@ from app.models.coverage import UserStreetCoverage
 from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
 from app.models.user import User
+from tests.integration.conftest import _make_test_session, _get_test_app as _get_base_app
 
 
 # ---------------------------------------------------------------------------
-# Self-contained test engine (avoids SQLite cross-thread errors)
+# Self-contained test engine
 # ---------------------------------------------------------------------------
-
-
-def _make_test_session():
-    """Create an in-memory SQLite session with SpatiaLite for integration tests."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    _spatialite_loaded = False
-
-    @event.listens_for(engine, "connect")
-    def _load_spatialite(dbapi_conn, connection_record):
-        nonlocal _spatialite_loaded
-        dbapi_conn.enable_load_extension(True)
-        for lib_name in ("mod_spatialite", "libspatialite"):
-            try:
-                dbapi_conn.load_extension(lib_name)
-                _spatialite_loaded = True
-                break
-            except Exception:
-                continue
-        dbapi_conn.enable_load_extension(False)
-
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("SELECT InitSpatialMetaData(1)"))
-            conn.commit()
-        except Exception:
-            pytest.skip("SpatiaLite extension not available")
-
-    if not _spatialite_loaded:
-        pytest.skip("SpatiaLite extension not available")
-
-    Base.metadata.create_all(bind=engine)
-    TestSession = sessionmaker(bind=engine, expire_on_commit=False)
-    return TestSession
 
 
 def _get_test_app():
-    """Create the FastAPI app with test DB override."""
-    from app.main import create_app
-
-    test_app = create_app()
-    TestSession = _make_test_session()
-
-    def override_get_db():
-        session = TestSession()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-    test_app.dependency_overrides[get_db] = override_get_db
-    return test_app, TestSession
+    """Wrap shared _get_test_app to return (app, SessionFactory, test_user) tuple."""
+    app, TestSession, test_user = _get_base_app()
+    return app, TestSession, test_user
 
 
-def _seed_data(session):
-    """Seed database with a city, neighborhood, streets, user and coverage records."""
+def _seed_data(session, user):
+    """Seed database with a city, neighborhood, streets, and coverage records for the given user."""
     poly = Polygon([
         (-122.40, 47.55), (-122.25, 47.55), (-122.25, 47.65),
         (-122.40, 47.65), (-122.40, 47.55),
@@ -149,18 +93,6 @@ def _seed_data(session):
     session.add_all([street1, street2])
     session.flush()
 
-    user = User(
-        strava_athlete_id=12345,
-        display_name="Test Runner",
-        access_token_encrypted="tok",
-        refresh_token_encrypted="rtok",
-        token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
-        strava_scope="activity:read_all",
-        sync_status="idle",
-    )
-    session.add(user)
-    session.flush()
-
     cov1 = UserStreetCoverage(
         user_id=user.id,
         street_segment_id=street1.id,
@@ -195,9 +127,9 @@ class TestCityCoverageEndpoint:
     """GET /api/v1/coverage/city/{city_id}"""
 
     def test_returns_city_summary(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         session.close()
 
@@ -213,9 +145,9 @@ class TestCityCoverageEndpoint:
         assert "neighborhoods" in data
 
     def test_city_not_found(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        _seed_data(session)
+        _seed_data(session, test_user)
         session.close()
 
         with TestClient(app) as client:
@@ -230,9 +162,9 @@ class TestNeighborhoodDetailEndpoint:
     """GET /api/v1/coverage/neighborhood/{neighborhood_id}"""
 
     def test_returns_neighborhood_detail(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         n_id = entities["neighborhood"].id
         session.close()
 
@@ -251,9 +183,9 @@ class TestNeighborhoodStreetsEndpoint:
     """GET /api/v1/coverage/neighborhood/{neighborhood_id}/streets"""
 
     def test_returns_geojson_feature_collection(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         n_id = entities["neighborhood"].id
         session.close()
 
@@ -274,9 +206,9 @@ class TestCityStreetsEndpoint:
     """GET /api/v1/coverage/city/{city_id}/streets"""
 
     def test_returns_all_streets(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         n_id = entities["neighborhood"].id
         session.close()
@@ -292,9 +224,9 @@ class TestCityStreetsEndpoint:
         assert len(data["features"]) == 2
 
     def test_filter_by_status_traveled(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         n_id = entities["neighborhood"].id
         session.close()
@@ -310,9 +242,9 @@ class TestCityStreetsEndpoint:
         assert data["features"][0]["properties"]["is_traveled"] is True
 
     def test_filter_by_neighborhood(self):
-        app, SessionCls = _get_test_app()
+        app, SessionCls, test_user = _get_test_app()
         session = SessionCls()
-        entities = _seed_data(session)
+        entities = _seed_data(session, test_user)
         city_id = entities["city"].id
         n_id = entities["neighborhood"].id
         session.close()
