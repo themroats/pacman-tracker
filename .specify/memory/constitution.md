@@ -84,8 +84,8 @@ regulatory risk.
   maps; Mapbox GL JS acceptable as an alternative.
 - **Geospatial**: Shapely and GeoPandas for geometry operations;
   OSMnx for street-network retrieval from OpenStreetMap.
-- **Data Store**: PostgreSQL with PostGIS for geospatial queries;
-  SQLite + SpatiaLite acceptable for local development.
+- **Data Store**: PostgreSQL with PostGIS for geospatial queries.
+  Docker Compose provides the local development database.
 - **CI**: All pushes MUST pass build + test before merge.
 - **Code Style**: Backend MUST pass `ruff check` and `ruff format`
   with zero warnings; frontend MUST pass ESLint and Prettier.
@@ -122,4 +122,4 @@ regulatory risk.
   the principles listed above. The plan-template "Constitution
   Check" gate enforces this at planning time.
 
-**Version**: 1.1.0 | **Ratified**: 2026-02-28 | **Last Amended**: 2026-02-28
+**Version**: 1.2.0 | **Ratified**: 2026-02-28 | **Last Amended**: 2026-03-24

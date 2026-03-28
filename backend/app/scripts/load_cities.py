@@ -21,6 +21,7 @@ from app.database import create_db_engine, get_session_factory
 from app.models.city import City
 from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
+from geoalchemy2.shape import from_shape
 
 # Launch cities with their projected CRS
 LAUNCH_CITIES: list[dict[str, Any]] = [
@@ -77,7 +78,7 @@ def load_city(session: Session, city_info: dict[str, Any]) -> City:
         name=city_name,
         state=state,
         country="US",
-        boundary=f"SRID=4326;{boundary.wkt}",
+        boundary=from_shape(boundary, srid=4326),
         projected_crs=projected_crs,
         osm_data_updated_at=datetime.datetime.now(datetime.UTC),
     )
@@ -117,7 +118,7 @@ def load_city(session: Session, city_info: dict[str, Any]) -> City:
             osm_node_end=row.name[1] if isinstance(row.name, tuple) else 0,
             name=row.get("name") if isinstance(row.get("name"), str) else None,
             highway_type=row.get("highway", "unclassified") if isinstance(row.get("highway"), str) else "unclassified",
-            geometry=f"SRID=4326;{geom.wkt}",
+            geometry=from_shape(geom, srid=4326),
             length_meters=length_m,
         )
         segments.append(segment)
@@ -153,10 +154,15 @@ def load_all_cities(target_city: str | None = None) -> None:
                 return
 
         for city_info in cities_to_load:
-            load_city(session, city_info)
+            city = load_city(session, city_info)
+            session.commit()
 
-        session.commit()
-        print("\nAll cities loaded successfully.")
+            # Load neighborhoods and assign streets
+            from app.scripts.load_neighborhoods import load_neighborhoods_for_city
+            load_neighborhoods_for_city(session, city)
+            session.commit()
+
+        print("\nAll cities and neighborhoods loaded successfully.")
     except Exception as e:
         session.rollback()
         print(f"\nError loading cities: {e}")

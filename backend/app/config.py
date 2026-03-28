@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     secret_key: str = "CHANGE-ME-IN-PRODUCTION"
 
     # --- Database ---
-    database_url: str = "sqlite:///./data/pacman.db"
+    database_url: str = "postgresql://pacman:pacman_dev@localhost:5432/pacman"
+    pool_size: int = 10
+    max_overflow: int = 20
+    use_azure_identity: bool = False
 
     # --- OSRM ---
     osrm_url: str = "http://localhost:5000"
@@ -46,11 +49,6 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """Parse comma-separated CORS origins into a list."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
-
-    @property
-    def is_sqlite(self) -> bool:
-        """True when using SQLite/SpatiaLite backend."""
-        return self.database_url.startswith("sqlite")
 
 
 def get_settings() -> Settings:

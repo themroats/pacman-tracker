@@ -8,7 +8,9 @@ FastAPI backend for the Pac-Man Tracker street coverage application.
 |-------|-----------|---------|
 | Framework | FastAPI 0.109+ | Async REST API with automatic OpenAPI docs |
 | ORM | SQLAlchemy 2.0+ | Database models + session management |
-| Geospatial | GeoAlchemy2, Shapely, GeoPandas | Geometry columns, GPS math, spatial analysis |
+| Geospatial | GeoAlchemy2, Shapely, GeoPandas, PostGIS | Geometry columns, GPS math, spatial analysis |
+| Database | PostgreSQL 16 + PostGIS 3.4 | Production-grade geospatial database |
+| Migrations | Alembic | Versioned schema migrations |
 | Auth | Strava OAuth2, Fernet encryption | User login via Strava, encrypted token storage |
 | HTTP Client | httpx | Async calls to Strava API |
 | Routing | OSRM (external) | Walking route suggestions |
@@ -32,7 +34,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment variables
+### 2. Start the database
+
+From the repo root:
+
+```bash
+docker compose up db -d
+```
+
+This starts PostgreSQL 16 + PostGIS 3.4 on port 5432. Wait for it to be healthy:
+
+```bash
+docker compose ps   # Should show "healthy"
+```
+
+### 3. Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -43,20 +59,22 @@ Edit `.env` and fill in:
 - `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` — from [Strava API settings](https://www.strava.com/settings/api)
 - `SECRET_KEY` — generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`
 
-### 3. Initialize the database
+### 4. Run database migrations
 
 ```bash
-python -m app.scripts.init_db       # Create tables + spatial indexes
-python -m app.scripts.load_cities   # Download street data for launch cities (~5-10 min)
+cd backend
+alembic upgrade head          # Creates all tables via Alembic
 ```
 
-### 4. Start the server
+On first startup with `AUTO_LOAD_CITIES_ON_EMPTY_DB=true` (the default), the app will automatically download and populate street data from OpenStreetMap.
+
+### 5. Start the server
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 4a. Start the backend in local Docker
+### 5a. Start the backend in local Docker
 
 From the repo root, you can use the helper script to remove the old local backend container, rebuild the image, and start it again:
 
@@ -82,7 +100,7 @@ If the backend is running in Docker and your OSRM server is running on the host,
 app/
 ├── main.py          ← App factory, CORS, lifespan events, error handling
 ├── config.py        ← Pydantic Settings (loads .env)
-├── database.py      ← SQLAlchemy engine, sessions, SpatiaLite extension
+├── database.py      ← SQLAlchemy engine, sessions, PostGIS initialization
 │
 ├── models/          ← ORM models (7 tables)
 │   ├── user.py              User (Strava athlete, encrypted tokens)

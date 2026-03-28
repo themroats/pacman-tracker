@@ -155,47 +155,27 @@ def run_coverage_matching(
     from app.models.coverage import UserStreetCoverage
     from app.models.street import StreetSegment
 
-    # Spatial pre-filter using SpatiaLite's R-tree index.  ST_Intersects
-    # alone does a full-table scan; the R-tree narrows 303k streets to
-    # typically a few hundred candidates in milliseconds.
-    from sqlalchemy import text as sa_text
+    # Spatial pre-filter using PostGIS GiST index via ST_Intersects + ST_MakeEnvelope.
+    # The GiST index on street_segments.geometry is used automatically by
+    # PostGIS's query planner through the && (bbox overlap) operator.
+    from geoalchemy2 import functions as gfunc
 
     bounds = gps_trace.bounds  # (minx, miny, maxx, maxy)
     pad = _approx_buffer_degrees(DEFAULT_BUFFER_METERS * 2)
     minx, miny = bounds[0] - pad, bounds[1] - pad
     maxx, maxy = bounds[2] + pad, bounds[3] + pad
 
-    # Step 1: R-tree gives us a fast set of candidate ROWIDs.
-    # f_table_name and f_geometry_column must be passed as bind params
-    # (string literals get stripped by PowerShell / SQLAlchemy in some contexts).
-    rtree_sql = sa_text(
-        "SELECT ROWID FROM SpatialIndex "
-        "WHERE f_table_name = :tbl "
-        "AND f_geometry_column = :col "
-        "AND search_frame = BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
+    # Step 1: GiST-indexed bbox pre-filter narrows 300k streets to a few hundred.
+    bbox_filter = gfunc.ST_MakeEnvelope(minx, miny, maxx, maxy, 4326)
+    streets_query = db.query(StreetSegment).filter(
+        StreetSegment.geometry.intersects(bbox_filter)
     )
-    candidate_ids = [
-        row[0]
-        for row in db.execute(
-            rtree_sql,
-            {"tbl": "street_segments", "col": "geometry",
-             "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy},
-        ).fetchall()
-    ]
+    if city_id:
+        streets_query = streets_query.filter(StreetSegment.city_id == city_id)
+    streets = streets_query.all()
 
-    if not candidate_ids:
+    if not streets:
         return 0.0
-
-    # Step 2: Fetch actual ORM objects for only those candidates.
-    # Chunk the IN(...) to stay within SQLite's 999-parameter limit.
-    _CHUNK = 900
-    streets: list = []
-    for i in range(0, len(candidate_ids), _CHUNK):
-        chunk = candidate_ids[i : i + _CHUNK]
-        q = db.query(StreetSegment).filter(StreetSegment.id.in_(chunk))
-        if city_id:
-            q = q.filter(StreetSegment.city_id == city_id)
-        streets.extend(q.all())
 
     # Convert DB geometries to Shapely
     street_geoms: list[tuple[int, LineString, float]] = []

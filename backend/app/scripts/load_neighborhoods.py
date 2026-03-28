@@ -27,6 +27,7 @@ from app.database import create_db_engine, get_session_factory
 from app.models.city import City
 from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
+from geoalchemy2.shape import from_shape, to_shape
 
 
 def _fetch_neighborhood_points(city_name: str, state: str) -> list[dict]:
@@ -168,7 +169,6 @@ def load_neighborhoods_for_city(
         }
 
     # Get city boundary as Shapely
-    from geoalchemy2.shape import to_shape
     city_boundary = to_shape(city.boundary)
 
     # Fetch OSM neighborhood info
@@ -190,7 +190,7 @@ def load_neighborhoods_for_city(
         obj = Neighborhood(
             city_id=city.id,
             name=n["name"],
-            boundary=f"SRID=4326;{n['boundary'].wkt}",
+            boundary=from_shape(n["boundary"], srid=4326),
             total_street_segments=0,
             total_street_length_m=0.0,
         )
@@ -213,8 +213,8 @@ def load_neighborhoods_for_city(
             }
         )
 
-    # Assign streets to neighborhoods using SpatiaLite R-tree spatial index
-    print("  Assigning streets to neighborhoods (R-tree + ST_Within)...")
+    # Assign streets to neighborhoods using PostGIS spatial index
+    print("  Assigning streets to neighborhoods (GiST + ST_Within)...")
     assigned = 0
     for i, (nb, n_data) in enumerate(zip(neighborhood_objs, neighborhoods), 1):
         shape = n_data["boundary"]  # Shapely MultiPolygon (already in memory)
@@ -225,13 +225,8 @@ def load_neighborhoods_for_city(
                 "UPDATE street_segments SET neighborhood_id = :nb_id "
                 "WHERE city_id = :city_id "
                 "AND neighborhood_id IS NULL "
-                "AND ROWID IN ("
-                "  SELECT ROWID FROM SpatialIndex "
-                "  WHERE f_table_name='street_segments' "
-                "  AND f_geometry_column='geometry' "
-                "  AND search_frame=BuildMbr(:minx, :miny, :maxx, :maxy, 4326)"
-                ") "
-                "AND ST_Within(ST_Centroid(geometry), GeomFromText(:nb_wkt, 4326))"
+                "AND geometry && ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326) "
+                "AND ST_Within(ST_Centroid(geometry), ST_GeomFromText(:nb_wkt, 4326))"
             ),
             {
                 "nb_id": nb.id,

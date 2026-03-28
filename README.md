@@ -27,9 +27,9 @@ Pac-Man Tracker imports your Strava activities, matches the GPS traces against O
                     ┌─────────┴─────────┐
                     │                   │
               ┌─────▼─────┐     ┌───────▼──────┐
-              │  SQLite/   │     │  OSRM        │
-              │ SpatiaLite │     │  :5000       │
-              │  (DB)      │     │  (routing)   │
+              │ PostgreSQL │     │  OSRM        │
+              │ + PostGIS  │     │  :5000       │
+              │  :5432     │     │  (routing)   │
               └────────────┘     └──────────────┘
 ```
 
@@ -37,7 +37,7 @@ Pac-Man Tracker imports your Strava activities, matches the GPS traces against O
 |-----------|-----------|
 | **Frontend** | React 18, TypeScript, Vite, react-leaflet, Zustand |
 | **Backend** | Python 3.12+, FastAPI, SQLAlchemy, GeoAlchemy2 |
-| **Database** | SQLite + SpatiaLite (local dev) |
+| **Database** | PostgreSQL 16 + PostGIS 3.4 (via Docker Compose) |
 | **Routing** | [OSRM](https://project-osrm.org/) with foot profile (via Docker) |
 | **Geospatial** | Shapely, GeoPandas, OSMnx, pyproj |
 
@@ -47,7 +47,7 @@ Pac-Man Tracker imports your Strava activities, matches the GPS traces against O
 
 - Python 3.12+
 - Node.js 18+
-- Docker (for OSRM routing server)
+- Docker (for PostgreSQL + PostGIS database and OSRM routing server)
 - A [Strava API Application](https://www.strava.com/settings/api)
 
 ### 1. Clone and configure
@@ -64,6 +64,9 @@ cp backend/.env.example backend/.env
 ### 2. Backend setup
 
 ```bash
+# Start PostgreSQL + PostGIS
+docker compose up db -d
+
 cd backend
 python -m venv .venv
 
@@ -74,11 +77,8 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-# Initialize the database
-python -m app.scripts.init_db
-
-# Load street data for supported cities
-python -m app.scripts.load_cities
+# Run database migrations
+alembic upgrade head
 
 # Start the API server
 uvicorn app.main:app --reload --port 8000

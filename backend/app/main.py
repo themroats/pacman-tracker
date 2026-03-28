@@ -5,49 +5,12 @@ Includes CORS middleware, error handling, router registration, and lifespan even
 """
 
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-
-
-# ---------------------------------------------------------------------------
-# Standard error response format
-# ---------------------------------------------------------------------------
-
-
-class AppError(Exception):
-    """Application-level error with structured response."""
-
-    def __init__(
-        self,
-        code: str,
-        message: str,
-        status_code: int = 400,
-        details: dict[str, Any] | None = None,
-    ):
-        self.code = code
-        self.message = message
-        self.status_code = status_code
-        self.details = details or {}
-        super().__init__(message)
-
-
-def error_response(code: str, message: str, status_code: int, details: dict | None = None) -> JSONResponse:
-    """Build a standardised JSON error response."""
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "code": code,
-                "message": message,
-                "details": details or {},
-            }
-        },
-    )
+from app.errors import AppError, error_response
 
 
 # ---------------------------------------------------------------------------
@@ -67,24 +30,15 @@ async def lifespan(app: FastAPI):
     startup_logger = logging.getLogger(__name__)
 
     engine = get_engine()
-    Base.metadata.create_all(bind=engine)
 
-    # Lightweight schema migration for new columns on existing tables
-    from sqlalchemy import inspect as sa_inspect, text as sa_text
+    # Apply pending Alembic migrations on startup
+    from alembic.config import Config as AlembicConfig
+    from alembic import command as alembic_command
+    import os
 
-    inspector = sa_inspect(engine)
-    if inspector.has_table("users"):
-        existing_cols = {c["name"] for c in inspector.get_columns("users")}
-        with engine.connect() as conn:
-            if "access_token_hash" not in existing_cols:
-                startup_logger.info("Adding access_token_hash column to users table")
-                conn.execute(sa_text("ALTER TABLE users ADD COLUMN access_token_hash VARCHAR(64)"))
-                conn.execute(sa_text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_access_token_hash ON users(access_token_hash)"))
-                conn.commit()
-            if "sync_started_at" not in existing_cols:
-                startup_logger.info("Adding sync_started_at column to users table")
-                conn.execute(sa_text("ALTER TABLE users ADD COLUMN sync_started_at DATETIME"))
-                conn.commit()
+    alembic_cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", str(engine.url).replace("%", "%%"))
+    alembic_command.upgrade(alembic_cfg, "head")
 
     # Recover stale sync statuses from previous process crash / restart
     from sqlalchemy.orm import Session
@@ -119,7 +73,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 
-def create_app() -> FastAPI:
+def create_app(*, custom_lifespan=None) -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
@@ -127,7 +81,7 @@ def create_app() -> FastAPI:
         title="Strava Street Mapper",
         description="Track Strava exercises and compare with the street map.",
         version="0.1.0",
-        lifespan=lifespan,
+        lifespan=custom_lifespan or lifespan,
     )
 
     # --- CORS ---
@@ -153,6 +107,20 @@ def create_app() -> FastAPI:
         import traceback
         traceback.print_exc()
         return error_response("INTERNAL_ERROR", "Internal server error", 500)
+
+    from sqlalchemy.exc import OperationalError, InterfaceError
+
+    @app.exception_handler(OperationalError)
+    async def db_operational_error_handler(request: Request, exc: OperationalError):
+        import logging
+        logging.getLogger(__name__).error("Database connection error: %s", exc)
+        return error_response("DATABASE_ERROR", "Database is temporarily unavailable", 503)
+
+    @app.exception_handler(InterfaceError)
+    async def db_interface_error_handler(request: Request, exc: InterfaceError):
+        import logging
+        logging.getLogger(__name__).error("Database interface error: %s", exc)
+        return error_response("DATABASE_ERROR", "Database is temporarily unavailable", 503)
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception):

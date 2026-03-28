@@ -30,9 +30,14 @@ def _state_payload(status: str, error: str | None) -> dict[str, str | bool | Non
 
 
 def _has_city_data() -> bool:
+    """True when at least one city exists with neighborhoods loaded."""
     session = get_session_factory()()
     try:
-        return session.query(City.id).first() is not None
+        city = session.query(City.id).first()
+        if city is None:
+            return False
+        from app.models.neighborhood import Neighborhood
+        return session.query(Neighborhood.id).first() is not None
     finally:
         session.close()
 

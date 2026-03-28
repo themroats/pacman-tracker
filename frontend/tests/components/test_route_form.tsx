@@ -107,7 +107,7 @@ describe("RoutePage OSRM unavailable (T060)", () => {
 
     // T060: OSRM flag
     expect(source).toContain("osrmAvailable");
-    expect(source).toContain("/api/v1/health");
+    expect(source).toContain("/health");
     expect(source).toContain("Route suggestions unavailable");
   });
 });

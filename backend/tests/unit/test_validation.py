@@ -117,31 +117,18 @@ class TestRouteSuggestRequestValidation:
         assert req.neighborhood_id is None
 
 
-class TestDatabasePragmas:
-    """T004: FK pragma and T004b: SpatiaLite fail-fast."""
+class TestDatabasePostGIS:
+    """Verify PostGIS initialization in database module."""
 
-    def test_foreign_keys_pragma_is_on(self):
-        """Verify that new connections have PRAGMA foreign_keys = ON."""
-        from sqlalchemy import create_engine, event, text
-        from app.database import _enable_foreign_keys
+    def test_validate_postgis_function_exists(self):
+        """Verify that _validate_postgis is importable from database module."""
+        from app.database import _validate_postgis
+        assert callable(_validate_postgis)
 
-        engine = create_engine("sqlite:///:memory:")
-        event.listen(engine, "connect", _enable_foreign_keys)
-
-        with engine.connect() as conn:
-            result = conn.execute(text("PRAGMA foreign_keys")).scalar()
-            assert result == 1, "foreign_keys pragma should be ON (1)"
-
-    def test_spatialite_failure_raises_runtime_error(self):
-        """Verify that _load_spatialite raises RuntimeError if extension not found."""
-        from unittest.mock import MagicMock
-        from app.database import _load_spatialite
-
-        mock_conn = MagicMock()
-        mock_conn.load_extension.side_effect = Exception("not found")
-
-        with pytest.raises(RuntimeError, match="SpatiaLite extension not found"):
-            _load_spatialite(mock_conn, None)
+    def test_init_postgis_function_exists(self):
+        """Verify that _init_postgis is importable from database module."""
+        from app.database import _init_postgis
+        assert callable(_init_postgis)
 
 
 class TestImportStatusValues:

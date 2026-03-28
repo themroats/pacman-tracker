@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.main import AppError
+from app.errors import AppError
 from app.models.user import User
 from app.schemas.user import AuthCallbackResponse, LogoutResponse
 from app.services.crypto import compute_token_hash, encrypt_token

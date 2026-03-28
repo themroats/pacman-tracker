@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.main import AppError
+from app.errors import AppError
 from app.services.city_bootstrap import get_city_bootstrap_state, start_city_bootstrap
 from app.services.neighborhood_bootstrap import (
     get_neighborhood_bootstrap_state,

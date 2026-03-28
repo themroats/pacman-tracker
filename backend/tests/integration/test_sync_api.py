@@ -1,42 +1,20 @@
 """Integration tests for sync endpoints."""
 
 import datetime
-from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from unittest.mock import MagicMock
 
 from app.database import get_db
 from app.models.user import User
 from app.services.sync_runtime import clear_active_sync_jobs, mark_sync_finished, mark_sync_started
-
-
-@asynccontextmanager
-async def _noop_lifespan(app):
-    yield
+from tests.integration.conftest import _make_test_session, _noop_lifespan
 
 
 def _create_app():
-    with patch("app.main.lifespan", _noop_lifespan):
-        from app.main import create_app
-
-        return create_app()
-
-
-def _make_test_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    User.__table__.create(bind=engine)
-    return sessionmaker(bind=engine, expire_on_commit=False)
+    from app.main import create_app
+    return create_app(custom_lifespan=_noop_lifespan)
 
 
 def test_trigger_coverage_starts_background_matcher():

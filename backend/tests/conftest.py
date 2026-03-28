@@ -2,66 +2,105 @@
 Pytest configuration and shared test fixtures for the Strava Street Mapper backend.
 
 Provides:
-- In-memory SpatiaLite database engine and session fixtures
+- PostgreSQL + PostGIS test database (uses the Docker Compose db service)
 - Sample geometry factories for streets, GPS traces, neighborhoods, cities
 - User and activity factory helpers
 """
 
 import datetime
+import os
 from collections.abc import Generator
 from typing import Any
 
 import pytest
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 # ---------------------------------------------------------------------------
 # Database fixtures
 # ---------------------------------------------------------------------------
 
+# Test database URL: uses a separate database on the same Docker Compose PG instance
+_TEST_DB_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql://pacman:pacman_dev@localhost:5432/pacman_test",
+)
 
-@pytest.fixture(scope="session")
-def spatialite_engine():
-    """Create an in-memory SQLite engine with SpatiaLite extension loaded."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+_pg_engine = None
 
-    @event.listens_for(engine, "connect")
-    def _load_spatialite(dbapi_conn, connection_record):
-        dbapi_conn.enable_load_extension(True)
-        # Try common SpatiaLite library names
-        for lib_name in ("mod_spatialite", "libspatialite"):
-            try:
-                dbapi_conn.load_extension(lib_name)
-                break
-            except Exception:
-                continue
-        else:
-            pytest.skip("SpatiaLite extension not available")
-        dbapi_conn.enable_load_extension(False)
 
-    # Initialise SpatiaLite metadata tables
-    with engine.connect() as conn:
-        conn.execute(text("SELECT InitSpatialMetaData(1)"))
+def pytest_configure(config):
+    """Create a dedicated test database on the Docker Compose PostgreSQL instance."""
+    global _pg_engine
+
+    # Disable city bootstrap in tests — prevents OSM downloads
+    os.environ["AUTO_LOAD_CITIES_ON_EMPTY_DB"] = "false"
+
+    # Connect to the default 'pacman' database to create the test database
+    admin_url = _TEST_DB_URL.rsplit("/", 1)[0] + "/pacman"
+    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    with admin_engine.connect() as conn:
+        # Create test database if it doesn't exist
+        exists = conn.execute(
+            text("SELECT 1 FROM pg_database WHERE datname = 'pacman_test'")
+        ).scalar()
+        if not exists:
+            conn.execute(text("CREATE DATABASE pacman_test"))
+    admin_engine.dispose()
+
+    # Connect to the test database and enable PostGIS
+    _pg_engine = create_engine(_TEST_DB_URL, echo=False)
+    with _pg_engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
         conn.commit()
 
-    return engine
+    # Set DATABASE_URL so app code uses the test DB
+    os.environ["DATABASE_URL"] = _TEST_DB_URL
+
+
+def pytest_unconfigure(config):
+    """Dispose of the test engine."""
+    global _pg_engine
+    if _pg_engine is not None:
+        _pg_engine.dispose()
+        _pg_engine = None
 
 
 @pytest.fixture(scope="session")
-def SessionFactory(spatialite_engine):
-    """Return a sessionmaker bound to the SpatiaLite engine."""
-    return sessionmaker(bind=spatialite_engine, expire_on_commit=False)
+def postgis_engine():
+    """Return the session-scoped PostGIS engine."""
+    from app.database import Base
+    from app import models  # noqa: F401 — populate Base.metadata
+
+    Base.metadata.create_all(bind=_pg_engine)
+    return _pg_engine
+
+
+@pytest.fixture(scope="session")
+def SessionFactory(postgis_engine):
+    """Return a sessionmaker bound to the PostGIS engine."""
+    return sessionmaker(bind=postgis_engine, expire_on_commit=False)
 
 
 @pytest.fixture()
-def db_session(SessionFactory) -> Generator[Session, None, None]:
-    """Provide a transactional database session that rolls back after each test."""
-    session: Session = SessionFactory()
-    session.begin_nested()
+def db_session(postgis_engine) -> Generator[Session, None, None]:
+    """Provide a clean database session that rolls back after each test."""
+    from app.database import Base
+
+    # Truncate all tables for a clean slate
+    with postgis_engine.connect() as cleanup_conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            cleanup_conn.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
+        cleanup_conn.commit()
+
+    connection = postgis_engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
     yield session
-    session.rollback()
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 # ---------------------------------------------------------------------------

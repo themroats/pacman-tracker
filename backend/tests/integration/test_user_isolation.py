@@ -9,62 +9,23 @@ Verifies:
 """
 
 import datetime
-from contextlib import asynccontextmanager
-from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.models.activity import Activity
 from app.models.user import User
 from app.services.crypto import compute_token_hash
-
-
-@asynccontextmanager
-async def _noop_lifespan(app):
-    yield
-
-
-def _make_engine():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    @event.listens_for(engine, "connect")
-    def _load_spatialite(dbapi_conn, connection_record):
-        dbapi_conn.enable_load_extension(True)
-        for lib_name in ("mod_spatialite", "libspatialite"):
-            try:
-                dbapi_conn.load_extension(lib_name)
-                break
-            except Exception:
-                continue
-        dbapi_conn.enable_load_extension(False)
-
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("SELECT InitSpatialMetaData(1)"))
-            conn.commit()
-        except Exception:
-            pytest.skip("SpatiaLite extension not available")
-
-    Base.metadata.create_all(bind=engine)
-    return engine
+from tests.integration.conftest import _make_test_session, _noop_lifespan
 
 
 @pytest.fixture()
 def test_env():
     """Set up a test app with two users, each owning distinct activities."""
-    engine = _make_engine()
-    SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
-    session = SessionFactory()
+    TestSession = _make_test_session()
+    session = TestSession()
 
     # Create two users with known token hashes
     user_a = User(
@@ -118,10 +79,8 @@ def test_env():
     session.add_all([act_a, act_b])
     session.commit()
 
-    with patch("app.main.lifespan", _noop_lifespan):
-        from app.main import create_app
-
-        app = create_app()
+    from app.main import create_app
+    app = create_app(custom_lifespan=_noop_lifespan)
 
     def override_get_db():
         try:

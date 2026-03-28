@@ -1,0 +1,14 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+tests/
+cache/
+data/
+*.md
+.venv/
+venv/
+*.egg-info/
+alembic/versions/__pycache__/
