@@ -239,6 +239,17 @@ export const routesApi = {
   async history(): Promise<{ routes: RouteHistoryItem[] }> {
     return request<{ routes: RouteHistoryItem[] }>("/routes/history");
   },
+
+  /** Fetch a route suggestion as a GPX File object. */
+  async fetchGpx(routeId: number): Promise<File> {
+    const url = `${BASE_URL}/routes/${routeId}/export/gpx`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error(`GPX export failed: ${res.status}`);
+    const blob = await res.blob();
+    return new File([blob], `pacman-route-${routeId}.gpx`, {
+      type: "application/gpx+xml",
+    });
+  },
 };
 
 // ---------------------------------------------------------------------------

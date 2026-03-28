@@ -2,13 +2,15 @@
 Routes API router (T059).
 
 Endpoints:
-- POST /routes/suggest     → generate route suggestion
-- GET  /routes/history     → past route suggestions
+- POST /routes/suggest              → generate route suggestion
+- GET  /routes/history              → past route suggestions
+- GET  /routes/{route_id}/export/gpx → download GPX file
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,6 +20,7 @@ from app.models.neighborhood import Neighborhood
 from app.models.route import RouteSuggestion
 from app.models.user import User
 from app.schemas.route import RouteSuggestRequest
+from app.services.gpx_export import build_gpx
 from app.services.routing import RoutePlannerService
 
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -115,3 +118,25 @@ def route_history(
         )
 
     return {"routes": routes}
+
+
+@router.get("/{route_id}/export/gpx")
+def export_gpx(
+    route_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(_get_current_user),
+):
+    """Download a route suggestion as a GPX file."""
+    suggestion = db.get(RouteSuggestion, route_id)
+    if not suggestion:
+        raise AppError("NOT_FOUND", f"Route {route_id} not found", 404)
+    if suggestion.user_id != user.id:
+        raise AppError("FORBIDDEN", "You do not own this route", 403)
+
+    gpx_xml = build_gpx(suggestion)
+    filename = f"pacman-route-{route_id}.gpx"
+    return Response(
+        content=gpx_xml,
+        media_type="application/gpx+xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
