@@ -138,6 +138,15 @@ export interface RouteSuggestRequest {
   distance_meters: number;
   city_id: number;
   neighborhood_id?: number;
+  variation?: number;
+  preferences?: RoutePreferences;
+}
+
+export interface RoutePreferences {
+  residential: number;
+  main_roads: number;
+  trails: number;
+  other: number;
 }
 
 export interface RouteSuggestResponse {
@@ -282,6 +291,113 @@ export interface StravaWebhookEvent {
   owner_id: number;
   subscription_id: number;
   updates: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Start Points
+// ---------------------------------------------------------------------------
+
+export interface SavedStartPoint {
+  id: number;
+  name: string;
+  lng: number;
+  lat: number;
+  is_default: boolean;
+}
+
+export interface StartPointCreate {
+  name: string;
+  lng: number;
+  lat: number;
+  is_default: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Coverage Plans
+// ---------------------------------------------------------------------------
+
+export interface CoveragePlanCreate {
+  neighborhood_id: number;
+  city_id: number;
+  preferred_route_distance_m: number;
+  start_point_id: number;
+  variation?: number;
+}
+
+export interface CoveragePlanRouteInfo {
+  sequence_order: number;
+  status: string;
+  route_id: number;
+  distance_meters: number;
+  estimated_duration_seconds: number;
+  streets_targeted: number;
+  untraveled_ratio: number;
+}
+
+export interface CoveragePlanResponse {
+  id: number;
+  neighborhood_id: number;
+  neighborhood_name: string;
+  city_id: number;
+  status: string;
+  preferred_route_distance_m: number;
+  initial_coverage_pct: number;
+  target_coverage_pct: number;
+  total_routes: number;
+  total_distance_m: number;
+  error_message: string | null;
+  routes: CoveragePlanRouteInfo[];
+}
+
+export interface CoveragePlanSummary {
+  id: number;
+  neighborhood_name: string;
+  status: string;
+  total_routes: number;
+  total_distance_m: number;
+  initial_coverage_pct: number;
+}
+
+// ---------------------------------------------------------------------------
+// Coverage Goals
+// ---------------------------------------------------------------------------
+
+export interface CoverageGoalCreate {
+  city_id: number;
+  target_coverage_pct: number;
+  preferred_route_distance_m: number;
+}
+
+export interface GoalNeighborhoodInfo {
+  neighborhood_id: number;
+  neighborhood_name: string;
+  current_coverage_pct: number;
+  untraveled_streets: number;
+  untraveled_distance_m: number;
+  plan_id: number | null;
+  plan_status: string | null;
+  estimated_routes: number;
+}
+
+export interface CoverageGoalResponse {
+  id: number;
+  city_id: number;
+  target_coverage_pct: number;
+  current_coverage_pct: number;
+  status: string;
+  total_routes: number;
+  total_distance_m: number;
+  neighborhoods: GoalNeighborhoodInfo[];
+}
+
+export interface CoverageGoalSummary {
+  id: number;
+  city_id: number;
+  target_coverage_pct: number;
+  current_coverage_pct: number;
+  status: string;
+  total_neighborhoods: number;
+  total_routes: number;
 }
 
 // ---------------------------------------------------------------------------

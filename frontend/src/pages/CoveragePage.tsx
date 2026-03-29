@@ -15,15 +15,23 @@ import NeighborhoodLayer, {
   type NeighborhoodFeature,
 } from "@/components/Map/NeighborhoodLayer";
 import ActivityLayer from "@/components/Map/ActivityLayer";
+import RouteLayer from "@/components/Map/RouteLayer";
 import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
 import CoverageSummary from "@/components/CoverageDashboard/CoverageSummary";
 import AreaSelector from "@/components/CoverageDashboard/AreaSelector";
+import NeighborhoodPlanForm from "@/components/CoveragePlanner/NeighborhoodPlanForm";
+import PlanDetail from "@/components/CoveragePlanner/PlanDetail";
+import CoverageGoalForm from "@/components/CoveragePlanner/CoverageGoalForm";
+import GoalDetail from "@/components/CoveragePlanner/GoalDetail";
 import { useAppStore } from "@/store";
-import { citiesApi, coverageApi, activitiesApi, syncApi, ApiClientError } from "@/api/client";
+import { citiesApi, coverageApi, activitiesApi, syncApi, plansApi, goalsApi, routesApi, ApiClientError } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type {
   CityCoverageResponse,
+  CoveragePlanResponse,
+  CoveragePlanSummary,
+  CoverageGoalResponse,
   GeoJSONFeatureCollection,
   SyncStatusResponse,
 } from "@/types/api";
@@ -86,6 +94,16 @@ export default function CoveragePage() {
   const [lastCoverageRunLabel, setLastCoverageRunLabel] = useState<string>("Not yet run");
   const previousCoverageStatus = useRef<string | null>(null);
 
+  // Planner state
+  const [planSummaries, setPlanSummaries] = useState<CoveragePlanSummary[]>([]);
+  const [activePlan, setActivePlan] = useState<CoveragePlanResponse | null>(null);
+  const [activeGoal, setActiveGoal] = useState<CoverageGoalResponse | null>(null);
+  const [plannerView, setPlannerView] = useState<"none" | "plan-form" | "plan-detail" | "goal-form" | "goal-detail">("none");
+
+  // Route viewing state (for showing plan routes on the map)
+  const [viewingRouteIds, setViewingRouteIds] = useState<Set<number>>(new Set());
+  const [viewingRoutesGeoJSON, setViewingRoutesGeoJSON] = useState<Map<number, GeoJSON.Feature>>(new Map());
+
   const coverageJobRunning = isCoverageJobActive(coverageStatus?.status);
   const coverageCompletionPercent = coverageStatus?.imported_activities
     ? Math.min(
@@ -94,16 +112,56 @@ export default function CoveragePage() {
       )
     : 0;
 
-  const [layerVis, setLayerVis] = useState({ activities: true, traveled: true, untraveled: true, neighborhoods: true });
+  const [layerVis, setLayerVis] = useState<Record<string, boolean>>({ activities: true, traveled: true, untraveled: true, neighborhoods: true, planRoute: true });
   const toggleLayer = useCallback((key: string) => {
-    setLayerVis((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+    setLayerVis((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
   const coverageLayers: LayerToggle[] = [
-    { key: "activities", label: "Activities", color: "#3b82f6", enabled: layerVis.activities },
-    { key: "traveled", label: "Covered streets", color: "#22c55e", enabled: layerVis.traveled },
-    { key: "untraveled", label: "Missing streets", color: "#ef4444", enabled: layerVis.untraveled },
-    { key: "neighborhoods", label: "Neighborhoods", color: "#9ca3af", enabled: layerVis.neighborhoods },
+    { key: "activities", label: "Activities", color: "#3b82f6", enabled: !!layerVis.activities },
+    { key: "traveled", label: "Covered streets", color: "#22c55e", enabled: !!layerVis.traveled },
+    { key: "untraveled", label: "Missing streets", color: "#ef4444", enabled: !!layerVis.untraveled },
+    { key: "neighborhoods", label: "Neighborhoods", color: "#9ca3af", enabled: !!layerVis.neighborhoods },
+    ...(viewingRoutesGeoJSON.size > 0 ? [{ key: "planRoute", label: "Plan routes", color: "#6366f1", enabled: layerVis.planRoute !== false }] : []),
   ];
+
+  const handleViewRoute = useCallback(async (routeId: number) => {
+    if (viewingRouteIds.has(routeId)) {
+      // Toggle off this route
+      setViewingRouteIds((prev) => { const next = new Set(prev); next.delete(routeId); return next; });
+      setViewingRoutesGeoJSON((prev) => { const next = new Map(prev); next.delete(routeId); return next; });
+      return;
+    }
+    try {
+      const feature = await routesApi.geojson(routeId);
+      setViewingRouteIds((prev) => new Set(prev).add(routeId));
+      setViewingRoutesGeoJSON((prev) => new Map(prev).set(routeId, feature));
+    } catch (err) {
+      console.error("Failed to load route geometry:", err);
+    }
+  }, [viewingRouteIds]);
+
+  const handleViewAllRoutes = useCallback(async (routeIds: number[]) => {
+    const allShown = routeIds.every((id) => viewingRouteIds.has(id));
+    if (allShown) {
+      // Toggle all off
+      setViewingRouteIds(new Set());
+      setViewingRoutesGeoJSON(new Map());
+      return;
+    }
+    // Load any routes not yet fetched
+    const toLoad = routeIds.filter((id) => !viewingRoutesGeoJSON.has(id));
+    try {
+      const results = await Promise.all(toLoad.map((id) => routesApi.geojson(id).then((f) => [id, f] as const)));
+      setViewingRoutesGeoJSON((prev) => {
+        const next = new Map(prev);
+        for (const [id, feature] of results) next.set(id, feature);
+        return next;
+      });
+      setViewingRouteIds(new Set(routeIds));
+    } catch (err) {
+      console.error("Failed to load route geometries:", err);
+    }
+  }, [viewingRouteIds, viewingRoutesGeoJSON]);
 
   const loadCoverageData = useCallback(async (cityId: number) => {
     setLoading(true);
@@ -232,6 +290,45 @@ export default function CoveragePage() {
       .then((response) => setNeighborhoodFeatures(response.features as NeighborhoodFeature[]))
       ;
   }, [selectedCityId, neighborhoods]);
+
+  // Load existing plans when city changes
+  useEffect(() => {
+    if (!selectedCityId) {
+      setPlanSummaries([]);
+      setActivePlan(null);
+      setActiveGoal(null);
+      setPlannerView("none");
+      return;
+    }
+    plansApi.list().then(setPlanSummaries).catch((err) => {
+      console.error("Failed to load plans:", err);
+    });
+  }, [selectedCityId]);
+
+  // Auto-show plan for selected neighborhood
+  useEffect(() => {
+    if (!selectedNeighborhoodId) {
+      setActivePlan(null);
+      setPlannerView("none");
+      return;
+    }
+    const existing = planSummaries.find(
+      (p) => p.neighborhood_name === neighborhoods.find((n) => n.id === selectedNeighborhoodId)?.name
+        && p.status !== "failed",
+    );
+    if (existing) {
+      plansApi.get(existing.id).then((plan) => {
+        setActivePlan(plan);
+        setPlannerView("plan-detail");
+      }).catch((err) => {
+        console.error("Failed to load plan:", err);
+      });
+    } else {
+      setActivePlan(null);
+      setPlannerView("plan-form");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNeighborhoodId, planSummaries, neighborhoods]);
 
   const handleNeighborhoodSelect = useCallback(
     (id: number) => {
@@ -414,6 +511,174 @@ export default function CoveragePage() {
               onNeighborhoodClick={handleNeighborhoodSelect}
             />
           )}
+
+          {/* Planner panel */}
+          {selectedCityId && plannerView !== "none" && (
+            <div style={{ padding: "0.75rem", borderTop: "1px solid #e5e7eb" }}>
+              {plannerView === "plan-form" && selectedNeighborhoodId && (() => {
+                const nh = coverageData?.neighborhoods.find((n) => n.id === selectedNeighborhoodId);
+                if (!nh) return null;
+                return (
+                  <NeighborhoodPlanForm
+                    neighborhoodId={selectedNeighborhoodId}
+                    neighborhoodName={nh.name}
+                    cityId={selectedCityId}
+                    coveragePct={nh.coverage_percentage}
+                    onPlanCreated={(plan) => {
+                      setActivePlan(plan);
+                      setPlanSummaries((prev) => [...prev, {
+                        id: plan.id,
+                        neighborhood_name: plan.neighborhood_name,
+                        status: plan.status,
+                        total_routes: plan.total_routes,
+                        total_distance_m: plan.total_distance_m,
+                        initial_coverage_pct: plan.initial_coverage_pct,
+                      }]);
+                      setPlannerView("plan-detail");
+                    }}
+                  />
+                );
+              })()}
+
+              {plannerView === "plan-detail" && activePlan && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <button
+                      onClick={() => {
+                        setSelectedNeighborhood(null);
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: "0.75rem",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "4px",
+                        background: "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Delete this plan and all its routes?")) return;
+                        try {
+                          await plansApi.remove(activePlan.id);
+                          setPlanSummaries((prev) => prev.filter((p) => p.id !== activePlan.id));
+                          setActivePlan(null);
+                          setViewingRouteIds(new Set());
+                          setViewingRoutesGeoJSON(new Map());
+                          setPlannerView(selectedNeighborhoodId ? "plan-form" : "none");
+                        } catch (err) {
+                          console.error("Failed to delete plan:", err);
+                        }
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: "0.75rem",
+                        border: "1px solid #fca5a5",
+                        borderRadius: "4px",
+                        background: "#fff",
+                        color: "#dc2626",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete Plan
+                    </button>
+                  </div>
+                  <PlanDetail
+                    plan={activePlan}
+                    onViewRoute={handleViewRoute}
+                    onViewAllRoutes={handleViewAllRoutes}
+                    viewingRouteIds={viewingRouteIds}
+                  />
+                </div>
+              )}
+
+              {plannerView === "goal-form" && coverageData?.city && (
+                <CoverageGoalForm
+                  cityId={selectedCityId}
+                  cityName={coverageData.city.name}
+                  currentCoveragePct={coverageData.city.coverage_percentage}
+                  onGoalCreated={(goal) => {
+                    setActiveGoal(goal);
+                    setPlannerView("goal-detail");
+                  }}
+                />
+              )}
+
+              {plannerView === "goal-detail" && activeGoal && (
+                <div>
+                  <button
+                    onClick={() => {
+                      setActiveGoal(null);
+                      setPlannerView("none");
+                    }}
+                    style={{
+                      marginBottom: "0.5rem",
+                      padding: "4px 8px",
+                      fontSize: "0.75rem",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      background: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ← Back
+                  </button>
+                  <GoalDetail
+                    goal={activeGoal}
+                    onViewPlan={(planId) => {
+                      plansApi.get(planId).then((plan) => {
+                        setActivePlan(plan);
+                        setPlannerView("plan-detail");
+                      }).catch((err) => {
+                        console.error("Failed to load plan:", err);
+                      });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Coverage Goal shortcut — city-level, when no neighborhood selected */}
+          {selectedCityId && !selectedNeighborhoodId && plannerView === "none" && coverageData?.city && (
+            <div style={{ padding: "0.75rem", borderTop: "1px solid #e5e7eb" }}>
+              <button
+                onClick={() => {
+                  // Check for existing goal first
+                  goalsApi.list().then((goals) => {
+                    const cityGoal = goals.find((g) => g.city_id === selectedCityId);
+                    if (cityGoal) {
+                      goalsApi.get(cityGoal.id).then((goal) => {
+                        setActiveGoal(goal);
+                        setPlannerView("goal-detail");
+                      }).catch((err) => {
+                        console.error("Failed to load goal:", err);
+                      });
+                    } else {
+                      setPlannerView("goal-form");
+                    }
+                  }).catch((err) => {
+                    console.error("Failed to load goals:", err);
+                  });
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  backgroundColor: "#faf5ff",
+                  border: "1px solid #c4b5fd",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "#6d28d9",
+                }}
+              >
+                🎯 Set Coverage Goal
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Back button */}
@@ -456,6 +721,16 @@ export default function CoveragePage() {
               selectedId={selectedNeighborhoodId}
               onSelect={handleNeighborhoodSelect}
             />
+          )}
+          {(layerVis.planRoute !== false) && viewingRoutesGeoJSON.size > 0 && (
+            Array.from(viewingRoutesGeoJSON.entries()).map(([routeId, feature]) => (
+              <RouteLayer
+                key={`plan-route-${routeId}`}
+                geometry={feature.geometry as { type: string; coordinates: [number, number][] }}
+                showRoute
+                showUntraveled={false}
+              />
+            ))
           )}
         </MapContainer>
         <LayerToggles layers={coverageLayers} onToggle={toggleLayer} />

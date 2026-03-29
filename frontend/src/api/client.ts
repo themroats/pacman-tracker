@@ -10,6 +10,12 @@ import type {
   AuthCallbackResponse,
   CityCoverageResponse,
   CityListResponse,
+  CoverageGoalCreate,
+  CoverageGoalResponse,
+  CoverageGoalSummary,
+  CoveragePlanCreate,
+  CoveragePlanResponse,
+  CoveragePlanSummary,
   GeoJSONFeatureCollection,
   NeighborhoodBoundaryFeatureCollection,
   LogoutResponse,
@@ -20,6 +26,8 @@ import type {
   RouteSuggestRequest,
   RouteSuggestResponse,
   RouteHistoryItem,
+  SavedStartPoint,
+  StartPointCreate,
   SyncTriggerResponse,
   SyncStatusResponse,
 } from "@/types/api";
@@ -250,6 +258,11 @@ export const routesApi = {
       type: "application/gpx+xml",
     });
   },
+
+  /** Fetch route geometry as GeoJSON for map display. */
+  async geojson(routeId: number): Promise<GeoJSON.Feature> {
+    return request<GeoJSON.Feature>(`/routes/${routeId}/geojson`);
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -302,6 +315,99 @@ export const citiesApi = {
     return request<GeoJSONFeatureCollection>(
       `/cities/${cityId}/neighborhoods/${neighborhoodId}/boundary`,
     );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Start Points
+// ---------------------------------------------------------------------------
+
+export const startPointsApi = {
+  /** List saved start points. */
+  async list(): Promise<SavedStartPoint[]> {
+    return request<SavedStartPoint[]>("/start-points");
+  },
+
+  /** Save a new start point. */
+  async create(body: StartPointCreate): Promise<SavedStartPoint> {
+    return request<SavedStartPoint>("/start-points", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Update a start point. */
+  async update(
+    id: number,
+    body: { name?: string; is_default?: boolean },
+  ): Promise<SavedStartPoint> {
+    return request<SavedStartPoint>(`/start-points/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Delete a start point. */
+  async remove(id: number): Promise<void> {
+    return request<void>(`/start-points/${id}`, { method: "DELETE" });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Coverage Plans
+// ---------------------------------------------------------------------------
+
+export const plansApi = {
+  /** List user's coverage plans. */
+  async list(): Promise<CoveragePlanSummary[]> {
+    return request<CoveragePlanSummary[]>("/plans");
+  },
+
+  /** Create a neighborhood coverage plan. */
+  async createNeighborhood(body: CoveragePlanCreate): Promise<CoveragePlanResponse> {
+    return request<CoveragePlanResponse>("/plans/neighborhood", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Get a plan with its routes. */
+  async get(planId: number): Promise<CoveragePlanResponse> {
+    return request<CoveragePlanResponse>(`/plans/${planId}`);
+  },
+
+  /** Delete a coverage plan. */
+  async remove(planId: number): Promise<void> {
+    return request<void>(`/plans/${planId}`, { method: "DELETE" });
+  },
+
+  /** Fetch a plan route as GPX file. */
+  async fetchRouteGpx(routeId: number): Promise<File> {
+    return routesApi.fetchGpx(routeId);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Coverage Goals
+// ---------------------------------------------------------------------------
+
+export const goalsApi = {
+  /** List user's coverage goals. */
+  async list(): Promise<CoverageGoalSummary[]> {
+    return request<CoverageGoalSummary[]>("/plans/goals");
+  },
+
+  /** Create a city-level coverage goal. */
+  async create(body: CoverageGoalCreate): Promise<CoverageGoalResponse> {
+    return request<CoverageGoalResponse>("/plans/goals", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Get a goal with its linked plans. */
+  async get(goalId: number): Promise<CoverageGoalResponse> {
+    return request<CoverageGoalResponse>(`/plans/goals/${goalId}`);
   },
 };
 

@@ -75,6 +75,8 @@ async def suggest_route(
         start_lng=lng,
         start_lat=lat,
         distance_meters=body.distance_meters,
+        variation=body.variation,
+        preferences=body.preferences.model_dump() if body.preferences else None,
     )
 
     # Handle service-level errors
@@ -140,3 +142,35 @@ def export_gpx(
         media_type="application/gpx+xml",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{route_id}/geojson")
+def route_geojson(
+    route_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(_get_current_user),
+):
+    """Return the route geometry as GeoJSON for map display."""
+    from geoalchemy2.shape import to_shape
+
+    suggestion = db.get(RouteSuggestion, route_id)
+    if not suggestion:
+        raise AppError("NOT_FOUND", f"Route {route_id} not found", 404)
+    if suggestion.user_id != user.id:
+        raise AppError("FORBIDDEN", "You do not own this route", 403)
+
+    geom = to_shape(suggestion.route_geometry)
+    coords = [[c[0], c[1]] for c in geom.coords]
+
+    return {
+        "type": "Feature",
+        "properties": {
+            "route_id": route_id,
+            "distance_meters": suggestion.distance_meters,
+            "estimated_duration_seconds": suggestion.estimated_duration_seconds,
+        },
+        "geometry": {
+            "type": "LineString",
+            "coordinates": coords,
+        },
+    }
