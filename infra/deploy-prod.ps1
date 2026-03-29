@@ -305,6 +305,19 @@ if (-not $SkipBackend) {
             throw "Failed to update App Service container settings."
         }
 
+        # Resolve OSRM_URL: use env file value, else read from existing app settings, else skip
+        $osrmUrlSetting = ""
+        if ($envValues.ContainsKey('OSRM_URL') -and -not [string]::IsNullOrWhiteSpace($envValues['OSRM_URL'])) {
+            $osrmUrlSetting = $envValues['OSRM_URL']
+        } else {
+            try {
+                $existingOsrmUrl = Invoke-AzText webapp config appsettings list --resource-group $ResourceGroup --name $BackendAppName --query "[?name=='OSRM_URL'].value | [0]"
+                if (-not [string]::IsNullOrWhiteSpace($existingOsrmUrl)) {
+                    $osrmUrlSetting = $existingOsrmUrl
+                }
+            } catch { }
+        }
+
         az webapp config appsettings set `
             --resource-group $ResourceGroup `
             --name $BackendAppName `
@@ -317,6 +330,7 @@ if (-not $SkipBackend) {
                 AUTO_LOAD_CITIES_ON_EMPTY_DB=false `
                 USE_AZURE_IDENTITY=false `
                 $(if ($pgDatabaseUrl) { "DATABASE_URL=$pgDatabaseUrl" }) `
+                $(if ($osrmUrlSetting) { "OSRM_URL=$osrmUrlSetting" }) `
                 WEBSITES_ENABLE_APP_SERVICE_STORAGE=true `
                 WEBSITES_PORT=8000 `
                 WEBSITES_CONTAINER_START_TIME_LIMIT=300 `
