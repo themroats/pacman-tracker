@@ -71,6 +71,8 @@ vi.mock("@/api/client", () => ({
   coverageApi: { city: coverageApiCity, cityStreets: coverageApiCityStreets },
   activitiesApi: { getAllGeoJSON: activitiesApiGeo },
   syncApi: { triggerCoverage, status: syncStatus },
+  plansApi: { list: vi.fn().mockResolvedValue([]) },
+  goalsApi: { list: vi.fn().mockResolvedValue([]) },
   ApiClientError: class extends Error {},
 }));
 

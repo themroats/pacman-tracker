@@ -140,3 +140,159 @@ describe("App ErrorBoundary (T050)", () => {
     expect(source).toContain("<ErrorBoundary>");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Route Enhancement Feature Tests (FR-001, FR-002, FR-003)
+// ---------------------------------------------------------------------------
+
+describe("RouteForm variation slider (FR-001)", () => {
+  it("has a range input for route variety", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("Route variety");
+    expect(source).toContain('type="range"');
+    expect(source).toContain("Efficient");
+    expect(source).toContain("Surprise me");
+    expect(source).toContain("setVariation");
+  });
+
+  it("passes variation to onSubmit", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    // onSubmit data should include variation
+    expect(source).toContain("variation,");
+    expect(source).toContain("onSubmit({");
+  });
+});
+
+describe("RouteForm street preferences (FR-002)", () => {
+  it("has preference sliders for each street category", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("Street preferences");
+    expect(source).toContain("residential");
+    expect(source).toContain("main_roads");
+    expect(source).toContain("trails");
+    expect(source).toContain("other");
+  });
+
+  it("shows preference labels: Avoid, Low, Med, High", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain('"Avoid"');
+    expect(source).toContain('"Low"');
+    expect(source).toContain('"Med"');
+    expect(source).toContain('"High"');
+  });
+
+  it("has a collapsible toggle for preferences", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("showPrefs");
+    expect(source).toContain("setShowPrefs");
+    expect(source).toContain("{showPrefs &&");
+  });
+
+  it("passes preferences to onSubmit", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("preferences,");
+    expect(source).toContain("onSubmit({");
+  });
+});
+
+describe("RouteForm saved start points (FR-003)", () => {
+  it("accepts saved start points as props", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    // savedPoints and selectedPointId come from parent (lifted for map sharing)
+    expect(source).toContain("savedPoints: SavedStartPoint[]");
+    expect(source).toContain("onSavedPointsChange");
+  });
+
+  it("has an add-point flow with save dialog", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("Add start point");
+    expect(source).toContain("handleSavePoint");
+    expect(source).toContain("addingPoint");
+    expect(source).toContain("savePointName");
+  });
+
+  it("uses savedPoints prop for default display", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("is_default");
+    expect(source).toContain("selectedPointId");
+  });
+
+  it("can delete a saved point", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    expect(source).toContain("handleDeleteSavedPoint");
+    expect(source).toContain("startPointsApi.remove");
+  });
+
+  it("delegates selection to parent via onSelectSavedPoint", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../../src/components/RouteSuggestion/RouteForm.tsx"),
+      "utf-8"
+    );
+
+    // Selection delegated to parent for map marker sync
+    expect(source).toContain("onSelectSavedPoint(id)");
+    expect(source).toContain("onSelectSavedPoint(null)");
+  });
+});

@@ -100,3 +100,48 @@ class TestOSRMRoute:
         with patch.object(osrm, "_get", new_callable=AsyncMock, return_value=mock_response):
             result = await osrm.route((-122.33, 47.60), (-122.34, 47.61))
             assert result["distance"] == 3000.0
+
+
+class TestOSRMRouteThrough:
+    """Tests for route_through() — ordered multi-waypoint routing."""
+
+    @pytest.mark.asyncio
+    async def test_returns_geometry_preserving_order(self, osrm):
+        mock_response = {
+            "code": "Ok",
+            "routes": [
+                {
+                    "distance": 8000.0,
+                    "duration": 4000.0,
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-122.33, 47.60], [-122.34, 47.61], [-122.35, 47.62]],
+                    },
+                }
+            ],
+        }
+        coords = [(-122.33, 47.60), (-122.34, 47.61), (-122.35, 47.62)]
+        with patch.object(osrm, "_get", new_callable=AsyncMock, return_value=mock_response) as mock_get:
+            result = await osrm.route_through(coords)
+            assert result["distance"] == 8000.0
+            assert result["geometry"]["type"] == "LineString"
+            # Verify it calls /route/v1/foot/ (not /trip/)
+            call_path = mock_get.call_args[0][0]
+            assert "/route/v1/foot/" in call_path
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_single_coord(self, osrm):
+        result = await osrm.route_through([(-122.33, 47.60)])
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_empty_coords(self, osrm):
+        result = await osrm.route_through([])
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_osrm_error(self, osrm):
+        mock_response = {"code": "NoRoute", "routes": []}
+        with patch.object(osrm, "_get", new_callable=AsyncMock, return_value=mock_response):
+            result = await osrm.route_through([(-122.33, 47.60), (-122.34, 47.61)])
+            assert result is None
