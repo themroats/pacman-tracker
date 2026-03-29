@@ -128,6 +128,26 @@ class OSRMClient:
             return None
         return data["routes"][0]
 
+    async def route_through(
+        self, coords: list[tuple[float, float]]
+    ) -> dict | None:
+        """Get a route through an ordered list of waypoints.
+
+        Unlike ``trip()`` which reorders waypoints for efficiency, this
+        preserves the given order — essential for ensuring the route
+        actually traverses specific streets by visiting their endpoints
+        consecutively.
+        """
+        if len(coords) < 2:
+            return None
+        coord_str = ";".join(f"{lng},{lat}" for lng, lat in coords)
+        path = f"/route/v1/{self.profile}/{coord_str}"
+        params = {"geometries": "geojson", "overview": "full"}
+        data = await self._get(path, params)
+        if data.get("code") != "Ok" or not data.get("routes"):
+            return None
+        return data["routes"][0]
+
 
 # ---------------------------------------------------------------------------
 # Route Suggestion Engine (T057 / T058)
@@ -142,21 +162,62 @@ class RouteSuggestionEngine:
 
     # ---- Waypoint selection ----
 
+    # Highway type → user-friendly category mapping (FR-002)
+    HIGHWAY_CATEGORIES: dict[str, str] = {
+        "residential": "residential",
+        "living_street": "residential",
+        "primary": "main_roads",
+        "secondary": "main_roads",
+        "tertiary": "main_roads",
+        "trunk": "main_roads",
+        "footway": "trails",
+        "path": "trails",
+        "cycleway": "trails",
+        "pedestrian": "trails",
+        "track": "trails",
+        "steps": "trails",
+        "service": "other",
+        "unclassified": "other",
+    }
+
+    DEFAULT_PREFERENCES: dict[str, float] = {
+        "residential": 1.0,
+        "main_roads": 0.5,
+        "trails": 1.0,
+        "other": 0.7,
+    }
+
     @staticmethod
     def select_waypoints(
         streets: list[dict[str, Any]],
         max_waypoints: int = 12,
+        variation: float = 0.5,
+        preferences: dict[str, float] | None = None,
     ) -> list[tuple[float, float]]:
-        """Pick midpoints of untraveled streets as OSRM waypoints.
+        """Pick endpoints of untraveled streets as OSRM waypoints.
+
+        Uses both endpoints of each selected street so OSRM is forced to
+        enter at one end and exit the other, actually traversing the street
+        rather than just passing near a midpoint.
 
         Parameters
         ----------
         streets:
             Each dict must have keys: ``geometry`` (Shapely LineString),
             ``is_traveled`` (bool), ``length_meters`` (float).
+            Optional: ``highway_type`` (str) for preference weighting.
         max_waypoints:
             Maximum number of waypoints to return (OSRM limit is ~100,
-            but fewer is faster).
+            but fewer is faster).  Each street uses 2 waypoints, so
+            ``max_waypoints // 2`` streets are selected.
+        variation:
+            Controls randomness in waypoint selection (0.0–1.0).
+            0.0 = deterministic (longest streets first, original behavior).
+            1.0 = fully random (all untraveled streets equally likely).
+        preferences:
+            Optional dict mapping category names to weights (0.0–1.0).
+            Categories: "residential", "main_roads", "trails", "other".
+            Weight of 0 excludes streets in that category.
 
         Returns list of (lng, lat) tuples.
         """
@@ -164,14 +225,56 @@ class RouteSuggestionEngine:
         if not untraveled:
             return []
 
-        # Sort by length descending so we prioritise longer streets
-        untraveled.sort(key=lambda s: s["length_meters"], reverse=True)
+        # Apply preference filtering (FR-002)
+        pref = preferences or RouteSuggestionEngine.DEFAULT_PREFERENCES
+        cat_map = RouteSuggestionEngine.HIGHWAY_CATEGORIES
+
+        def _pref_weight(street: dict) -> float:
+            hw = street.get("highway_type", "")
+            cat = cat_map.get(hw, "other")
+            return pref.get(cat, 0.7)
+
+        # Filter out streets with preference weight 0
+        filtered = [s for s in untraveled if _pref_weight(s) > 0]
+
+        # If all filtered out, fall back to all untraveled (edge case)
+        if not filtered:
+            filtered = untraveled
+
+        # Each street yields 2 waypoints (both endpoints),
+        # so select at most max_waypoints // 2 streets.
+        max_streets = max(max_waypoints // 2, 1)
+        k = min(max_streets, len(filtered))
+
+        if variation <= 0.0 or k >= len(filtered):
+            # Deterministic: sort by length × preference weight, take top-k
+            filtered.sort(
+                key=lambda s: s["length_meters"] * _pref_weight(s),
+                reverse=True,
+            )
+            selected = filtered[:k]
+        else:
+            # Weighted random sampling (FR-001)
+            # weight = length^(1 - variation) × preference_weight
+            weights = [
+                (s["length_meters"] ** (1 - variation)) * _pref_weight(s)
+                for s in filtered
+            ]
+            selected = random.sample(
+                population=list(range(len(filtered))),
+                counts=[max(1, int(w * 1000)) for w in weights],
+                k=k,
+            )
+            selected = [filtered[i] for i in dict.fromkeys(selected)][:k]
 
         waypoints: list[tuple[float, float]] = []
-        for s in untraveled[:max_waypoints]:
+        for s in selected:
             geom: LineString = s["geometry"]
-            mid = geom.interpolate(0.5, normalized=True)
-            waypoints.append((mid.x, mid.y))
+            coords = list(geom.coords)
+            # Add both endpoints so OSRM traverses the full street
+            waypoints.append((coords[0][0], coords[0][1]))
+            if len(coords) >= 2:
+                waypoints.append((coords[-1][0], coords[-1][1]))
 
         return waypoints
 
@@ -226,6 +329,9 @@ class RouteSuggestionEngine:
         start: tuple[float, float],
         target_distance: float,
         streets: list[dict[str, Any]],
+        variation: float = 0.5,
+        preferences: dict[str, float] | None = None,
+        max_waypoints: int = 12,
     ) -> dict:
         """High-level route suggestion.
 
@@ -235,7 +341,12 @@ class RouteSuggestionEngine:
         - ``untraveled_ratio``: fraction of route on untraveled streets (estimated)
         - ``message``: user-facing message if 100 % covered
         """
-        waypoints = self.select_waypoints(streets)
+        waypoints = self.select_waypoints(
+            streets,
+            max_waypoints=max_waypoints,
+            variation=variation,
+            preferences=preferences,
+        )
 
         if not waypoints:
             return {
@@ -298,6 +409,8 @@ class RoutePlannerService:
         start_lng: float,
         start_lat: float,
         distance_meters: float,
+        variation: float = 0.5,
+        preferences: dict[str, float] | None = None,
     ) -> dict:
         """Generate, persist, and return a route suggestion.
 
@@ -387,6 +500,7 @@ class RoutePlannerService:
                     "length_meters": s.length_meters,
                     "is_traveled": cov_map.get(s.id, False),
                     "name": s.name,
+                    "highway_type": s.highway_type,
                 }
             )
 
@@ -396,6 +510,8 @@ class RoutePlannerService:
                 start=(start_lng, start_lat),
                 target_distance=distance_meters,
                 streets=streets_for_engine,
+                variation=variation,
+                preferences=preferences,
             )
         except OSRMUnavailableError as exc:
             return {"error": "OSRM_UNAVAILABLE", "message": str(exc)}
