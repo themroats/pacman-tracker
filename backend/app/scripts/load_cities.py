@@ -23,13 +23,13 @@ from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
 from geoalchemy2.shape import from_shape
 
-# Launch cities with their projected CRS
+# Launch cities with their projected CRS (must use metre-based CRS for lengths)
 LAUNCH_CITIES: list[dict[str, Any]] = [
-    {"name": "Seattle", "state": "Washington", "projected_crs": "EPSG:2926"},
-    # {"name": "Pittsburgh", "state": "Pennsylvania", "projected_crs": "EPSG:2272"},
-    # {"name": "Chicago", "state": "Illinois", "projected_crs": "EPSG:3435"},
-    # {"name": "New York", "state": "New York", "projected_crs": "EPSG:2263"},
-    # {"name": "San Francisco", "state": "California", "projected_crs": "EPSG:2227"},
+    {"name": "Seattle", "state": "Washington", "projected_crs": "EPSG:32610"},  # UTM 10N (metres)
+    # {"name": "Pittsburgh", "state": "Pennsylvania", "projected_crs": "EPSG:32617"},  # UTM 17N
+    # {"name": "Chicago", "state": "Illinois", "projected_crs": "EPSG:32616"},  # UTM 16N
+    # {"name": "New York", "state": "New York", "projected_crs": "EPSG:32618"},  # UTM 18N
+    # {"name": "San Francisco", "state": "California", "projected_crs": "EPSG:32610"},  # UTM 10N
 ]
 
 
