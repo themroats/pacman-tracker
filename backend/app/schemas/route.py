@@ -10,11 +10,20 @@ class StartPoint(BaseModel):
     lat: float = Field(..., ge=-90, le=90)
 
 
+class RoutePreferences(BaseModel):
+    residential: float = Field(1.0, ge=0, le=1)
+    main_roads: float = Field(0.5, ge=0, le=1)
+    trails: float = Field(1.0, ge=0, le=1)
+    other: float = Field(0.7, ge=0, le=1)
+
+
 class RouteSuggestRequest(BaseModel):
     start_point: StartPoint
     distance_meters: float = Field(..., gt=0, le=50000)
     city_id: int = Field(..., gt=0)
     neighborhood_id: int | None = Field(None, gt=0)
+    variation: float = Field(0.5, ge=0, le=1)
+    preferences: RoutePreferences | None = None
 
 
 class RouteGeometry(BaseModel):

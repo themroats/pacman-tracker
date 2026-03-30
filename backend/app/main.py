@@ -134,8 +134,10 @@ def create_app(*, custom_lifespan=None) -> FastAPI:
     from app.api.activities import router as activities_router
     from app.api.cities import router as cities_router
     from app.api.coverage import router as coverage_router
+    from app.api.plans import router as plans_router
     from app.api.progress import router as progress_router
     from app.api.routes import router as routes_router
+    from app.api.start_points import router as start_points_router
     from app.api.sync import router as sync_router
     from app.api.webhook import router as webhook_router
 
@@ -144,8 +146,10 @@ def create_app(*, custom_lifespan=None) -> FastAPI:
     app.include_router(activities_router, prefix="/api/v1")
     app.include_router(cities_router, prefix="/api/v1")
     app.include_router(coverage_router, prefix="/api/v1")
+    app.include_router(plans_router, prefix="/api/v1")
     app.include_router(progress_router, prefix="/api/v1")
     app.include_router(routes_router, prefix="/api/v1")
+    app.include_router(start_points_router, prefix="/api/v1")
     app.include_router(sync_router, prefix="/api/v1")
     app.include_router(webhook_router, prefix="/api/v1")
 

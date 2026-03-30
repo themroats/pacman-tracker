@@ -10,15 +10,18 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import RouteForm from "@/components/RouteSuggestion/RouteForm";
 import RouteDetail from "@/components/RouteSuggestion/RouteDetail";
 import RouteLayer from "@/components/Map/RouteLayer";
+import StartPointMarkers from "@/components/Map/StartPointMarkers";
 import LayerToggles, { type LayerToggle } from "@/components/Map/LayerToggles";
-import { routesApi, citiesApi } from "@/api/client";
+import { routesApi, citiesApi, startPointsApi } from "@/api/client";
 import { useCityCatalog } from "@/hooks/useCityCatalog";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAppStore } from "@/store";
 import type {
   RouteSuggestResponse,
+  RouteSuggestRequest,
   RouteSegment,
   GeoJSONLineString,
+  SavedStartPoint,
 } from "@/types/api";
 import "leaflet/dist/leaflet.css";
 
@@ -53,6 +56,42 @@ export default function RoutePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [osrmAvailable, setOsrmAvailable] = useState<boolean | null>(null);
+
+  // Start point state (shared between form and map)
+  const [startPosition, setStartPosition] = useState<{ lat: number; lng: number }>({
+    lat: 47.623765870845304,
+    lng: -122.32225012178574,
+  });
+  const [savedPoints, setSavedPoints] = useState<SavedStartPoint[]>([]);
+  const [selectedPointId, setSelectedPointId] = useState<number | null>(null);
+  const [addingPoint, setAddingPoint] = useState(false);
+
+  // Load saved start points
+  useEffect(() => {
+    startPointsApi.list().then((points) => {
+      setSavedPoints(points);
+      const defaultPt = points.find((p) => p.is_default);
+      if (defaultPt) {
+        setStartPosition({ lat: defaultPt.lat, lng: defaultPt.lng });
+        setSelectedPointId(defaultPt.id);
+      }
+    }).catch((err) => {
+      console.error("Failed to load saved start points:", err);
+    });
+  }, []);
+
+  const handleStartPointChange = useCallback((latlng: { lat: number; lng: number }) => {
+    setStartPosition(latlng);
+    setSelectedPointId(null);
+  }, []);
+
+  const handleSelectSavedPoint = useCallback((id: number | null) => {
+    setSelectedPointId(id);
+    if (id) {
+      const pt = savedPoints.find((p) => p.id === id);
+      if (pt) setStartPosition({ lat: pt.lat, lng: pt.lng });
+    }
+  }, [savedPoints]);
 
   // Check OSRM availability on mount
   useEffect(() => {
@@ -93,6 +132,8 @@ export default function RoutePage() {
       distance_meters: number;
       city_id: number;
       neighborhood_id?: number;
+      variation?: number;
+      preferences?: RouteSuggestRequest["preferences"];
     }) => {
       setLoading(true);
       setMessage(null);
@@ -156,6 +197,13 @@ export default function RoutePage() {
               onSubmit={handleSubmit}
               loading={loading}
               citiesLoading={isBootstrapping}
+              startPoint={startPosition}
+              savedPoints={savedPoints}
+              selectedPointId={selectedPointId}
+              onSelectSavedPoint={handleSelectSavedPoint}
+              onSavedPointsChange={setSavedPoints}
+              addingPoint={addingPoint}
+              onAddingPointChange={setAddingPoint}
             />
           )}
           {isBootstrapping && cities.length === 0 && (
@@ -184,6 +232,14 @@ export default function RoutePage() {
           preferCanvas
         >
           <TileLayer url={TILE_URL} attribution="&copy; CartoDB" />
+          <StartPointMarkers
+            position={[startPosition.lat, startPosition.lng]}
+            onPositionChange={handleStartPointChange}
+            savedPoints={savedPoints}
+            onSelectSavedPoint={handleSelectSavedPoint}
+            selectedPointId={selectedPointId}
+            interactive={addingPoint}
+          />
           {route && (
             <RouteLayer
               geometry={route.geometry}
