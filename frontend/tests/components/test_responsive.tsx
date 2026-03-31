@@ -108,7 +108,7 @@ describe("NavBar — mobile responsive", () => {
     expect(screen.getByText("Map")).toBeVisible();
     expect(screen.getByText("Coverage")).toBeVisible();
     expect(screen.getByText("Routes")).toBeVisible();
-    expect(screen.getByText("Progress")).toBeVisible();
+    expect(screen.getByText("Profile")).toBeVisible();
     expect(screen.getByText("Logout")).toBeVisible();
   });
 
