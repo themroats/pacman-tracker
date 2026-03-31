@@ -16,7 +16,7 @@ import datetime
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from geoalchemy2.shape import from_shape
-from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
 from app.models.city import City
 from app.models.neighborhood import Neighborhood
@@ -102,6 +102,20 @@ _OSRM_NEAREST_RESPONSE = {
 }
 
 
+def _seed_start_point(session, user):
+    """Seed a UserStartPoint and return its id."""
+    from app.models.start_point import UserStartPoint
+    sp = UserStartPoint(
+        user_id=user.id,
+        name="Home",
+        point=from_shape(Point(-122.33, 47.61), srid=4326),
+        is_default=True,
+    )
+    session.add(sp)
+    session.commit()
+    return sp.id
+
+
 def _mock_osrm():
     """Patch both check_osrm_available and the OSRM client methods."""
     return [
@@ -118,6 +132,7 @@ class TestPlanCreate:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         city, neighborhood = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -129,6 +144,7 @@ class TestPlanCreate:
                     "neighborhood_id": neighborhood.id,
                     "city_id": city.id,
                     "preferred_route_distance_m": 3000,
+                    "start_point_id": sp_id,
                 })
             assert resp.status_code == 201
             data = resp.json()
@@ -144,6 +160,7 @@ class TestPlanCreate:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         city, _ = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -155,6 +172,7 @@ class TestPlanCreate:
                     "neighborhood_id": 99999,
                     "city_id": city.id,
                     "preferred_route_distance_m": 3000,
+                    "start_point_id": sp_id,
                 })
             assert resp.status_code == 404
         finally:
@@ -165,6 +183,7 @@ class TestPlanCreate:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         _, neighborhood = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -176,6 +195,7 @@ class TestPlanCreate:
                     "neighborhood_id": neighborhood.id,
                     "city_id": 99999,
                     "preferred_route_distance_m": 3000,
+                    "start_point_id": sp_id,
                 })
             assert resp.status_code == 404
         finally:
@@ -197,6 +217,7 @@ class TestPlanList:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         city, neighborhood = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -208,6 +229,7 @@ class TestPlanList:
                     "neighborhood_id": neighborhood.id,
                     "city_id": city.id,
                     "preferred_route_distance_m": 3000,
+                    "start_point_id": sp_id,
                 })
                 resp = client.get("/api/v1/plans")
 
@@ -219,15 +241,57 @@ class TestPlanList:
             for p in patches:
                 p.stop()
 
+    def test_standalone_plan_has_null_goal_id(self):
+        """Plans created directly (not from a goal) should have goal_id=null."""
+        app, SessionCls, user = _get_test_app()
+        session = SessionCls()
+        city, neighborhood = _seed_city_and_neighborhood(session)
+
+        # Seed a start point (required by CoveragePlanCreate)
+        from app.models.start_point import UserStartPoint
+        start_pt = UserStartPoint(
+            user_id=user.id,
+            name="Home",
+            point=from_shape(Point(-122.33, 47.61), srid=4326),
+            is_default=True,
+        )
+        session.add(start_pt)
+        session.commit()
+        sp_id = start_pt.id
+        session.close()
+
+        patches = _mock_osrm()
+        for p in patches:
+            p.start()
+        try:
+            with TestClient(app) as client:
+                create_resp = client.post("/api/v1/plans/neighborhood", json={
+                    "neighborhood_id": neighborhood.id,
+                    "city_id": city.id,
+                    "preferred_route_distance_m": 3000,
+                    "start_point_id": sp_id,
+                })
+                assert create_resp.status_code == 201, f"Plan create failed: {create_resp.json()}"
+                resp = client.get("/api/v1/plans")
+
+            plans = resp.json()
+            assert len(plans) >= 1
+            assert "goal_id" in plans[0]
+            assert plans[0]["goal_id"] is None
+        finally:
+            for p in patches:
+                p.stop()
+
 
 class TestPlanGetAndRoutes:
     """GET /plans/{id}, PATCH complete route, DELETE."""
 
-    def _create_plan(self, client, city_id, neighborhood_id):
+    def _create_plan(self, client, city_id, neighborhood_id, start_point_id):
         resp = client.post("/api/v1/plans/neighborhood", json={
             "neighborhood_id": neighborhood_id,
             "city_id": city_id,
             "preferred_route_distance_m": 3000,
+            "start_point_id": start_point_id,
         })
         assert resp.status_code == 201
         return resp.json()
@@ -236,6 +300,7 @@ class TestPlanGetAndRoutes:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         city, neighborhood = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -243,7 +308,7 @@ class TestPlanGetAndRoutes:
             p.start()
         try:
             with TestClient(app) as client:
-                plan = self._create_plan(client, city.id, neighborhood.id)
+                plan = self._create_plan(client, city.id, neighborhood.id, sp_id)
                 resp = client.get(f"/api/v1/plans/{plan['id']}")
             assert resp.status_code == 200
             assert resp.json()["id"] == plan["id"]
@@ -261,6 +326,7 @@ class TestPlanGetAndRoutes:
         app, SessionCls, user = _get_test_app()
         session = SessionCls()
         city, neighborhood = _seed_city_and_neighborhood(session)
+        sp_id = _seed_start_point(session, user)
         session.close()
 
         patches = _mock_osrm()
@@ -268,7 +334,7 @@ class TestPlanGetAndRoutes:
             p.start()
         try:
             with TestClient(app) as client:
-                plan = self._create_plan(client, city.id, neighborhood.id)
+                plan = self._create_plan(client, city.id, neighborhood.id, sp_id)
                 resp = client.delete(f"/api/v1/plans/{plan['id']}")
                 assert resp.status_code == 204
 

@@ -210,3 +210,62 @@ class TestGetCityTimeline:
         timeline = get_city_timeline(db, user_id=1, city_id=1)
         assert len(timeline["timeline"]) == 1
         assert timeline["timeline"][0]["coverage_percentage"] == 10.5
+
+    def test_self_heals_when_no_snapshots_but_coverage_exists(self):
+        """When no snapshots exist but user has coverage, seed a snapshot."""
+        from app.services.progress import get_city_timeline
+
+        db = MagicMock()
+
+        from app.models.street import StreetSegment
+        from app.models.coverage import UserStreetCoverage, CoverageSnapshot
+        from app.models.city import City
+
+        # City lookup
+        mock_city = MagicMock()
+        mock_city.name = "Seattle"
+
+        # Track query(model) calls to return different mocks
+        snapshot_call = [0]
+
+        def query_side_effect(model):
+            if model is City:
+                q = MagicMock()
+                q.filter_by.return_value.first.return_value = mock_city
+                return q
+            if model is CoverageSnapshot:
+                snapshot_call[0] += 1
+                q = MagicMock()
+                if snapshot_call[0] == 1:
+                    # First call: get snapshots → empty
+                    q.filter_by.return_value.order_by.return_value.all.return_value = []
+                else:
+                    # Milestone query
+                    q.filter_by.return_value.filter.return_value.order_by.return_value.all.return_value = []
+                return q
+            if model is StreetSegment:
+                q = MagicMock()
+                q.filter_by.return_value.count.return_value = 100
+                return q
+            if model is UserStreetCoverage:
+                # .join(...).filter(a, b, c).count() = 25
+                q = MagicMock()
+                q.join.return_value.filter.return_value.count.return_value = 25
+                return q
+            return MagicMock()
+
+        db.query.side_effect = query_side_effect
+
+        # Mock record_daily_snapshot to return a fake snapshot
+        mock_snap = MagicMock()
+        mock_snap.snapshot_date = datetime.date(2025, 6, 15)
+        mock_snap.coverage_percentage = 25.0
+        mock_snap.total_streets_traveled = 25
+
+        with patch("app.services.progress.record_daily_snapshot", return_value=mock_snap):
+            result = get_city_timeline(db, user_id=1, city_id=1)
+
+        assert result["city_name"] == "Seattle"
+        assert result["current_coverage_percentage"] == 25.0
+        assert len(result["timeline"]) == 1
+        assert result["timeline"][0]["coverage_percentage"] == 25.0
