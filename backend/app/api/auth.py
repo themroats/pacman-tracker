@@ -15,14 +15,16 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError
 from app.models.user import User
+from app.models.user_token import UserToken
 from app.schemas.user import AuthCallbackResponse, LogoutResponse
 from app.services.crypto import compute_token_hash, encrypt_token
 from app.services.strava import StravaAPIError, StravaOAuthService, TokenRevokedError
@@ -126,7 +128,6 @@ async def strava_callback(
             display_name=token_data["display_name"],
             profile_image_url=token_data.get("profile_image_url"),
             access_token_encrypted=encrypt_token(token_data["access_token"]),
-            access_token_hash=compute_token_hash(token_data["access_token"]),
             refresh_token_encrypted=encrypt_token(token_data["refresh_token"]),
             token_expires_at=token_data["expires_at"],
             strava_scope=scope,
@@ -137,7 +138,6 @@ async def strava_callback(
     else:
         # Update tokens
         user.access_token_encrypted = encrypt_token(token_data["access_token"])
-        user.access_token_hash = compute_token_hash(token_data["access_token"])
         user.refresh_token_encrypted = encrypt_token(token_data["refresh_token"])
         user.token_expires_at = token_data["expires_at"]
         user.strava_scope = scope
@@ -145,6 +145,14 @@ async def strava_callback(
         user.profile_image_url = token_data.get("profile_image_url")
         if user.sync_status == "revoked":
             user.sync_status = "importing"
+
+    # Upsert a UserToken row for this frontend session
+    new_hash = compute_token_hash(token_data["access_token"])
+    existing_token = db.query(UserToken).filter_by(token_hash=new_hash).first()
+    if not existing_token:
+        # Remove old frontend tokens for this user (one active frontend session)
+        db.query(UserToken).filter_by(user_id=user.id, client_name="frontend").delete()
+        db.add(UserToken(user_id=user.id, token_hash=new_hash, client_name="frontend"))
 
     # Commit so the user exists in DB before background import starts
     db.commit()
@@ -200,6 +208,54 @@ async def _run_background_import(user_id: int, access_token: str):
 
 
 @router.post("/logout", response_model=LogoutResponse)
-def logout():
-    """End user session."""
+def logout(
+    db: Session = Depends(get_db),
+    authorization: str = Header(None),
+):
+    """End user session — removes the current token."""
+    if authorization:
+        parts = authorization.split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1].strip()
+            if token:
+                token_hash = compute_token_hash(token)
+                db.query(UserToken).filter_by(token_hash=token_hash).delete()
+                db.commit()
     return LogoutResponse(message="Logged out")
+
+
+class MCPRegisterRequest(BaseModel):
+    """Request body for MCP token registration."""
+    access_token: str
+    strava_athlete_id: int
+
+
+@router.post("/mcp/register", response_model=AuthCallbackResponse)
+def mcp_register(
+    body: MCPRegisterRequest,
+    db: Session = Depends(get_db),
+):
+    """Register an MCP server's Strava token for an existing user.
+
+    The MCP server performs its own Strava OAuth, then calls this endpoint
+    to register the token with the backend so it can make authenticated API calls.
+    """
+    user = db.query(User).filter_by(strava_athlete_id=body.strava_athlete_id).first()
+    if not user:
+        raise AppError("NOT_FOUND", "No user found for this Strava athlete", 404)
+
+    new_hash = compute_token_hash(body.access_token)
+    existing = db.query(UserToken).filter_by(token_hash=new_hash).first()
+    if not existing:
+        # Remove old MCP tokens for this user (one active MCP session)
+        db.query(UserToken).filter_by(user_id=user.id, client_name="mcp").delete()
+        db.add(UserToken(user_id=user.id, token_hash=new_hash, client_name="mcp"))
+        db.commit()
+
+    return AuthCallbackResponse(
+        user_id=user.id,
+        display_name=user.display_name,
+        access_token=body.access_token,
+        home_city=user.home_city_id,
+        sync_status=user.sync_status,
+    )

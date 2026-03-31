@@ -20,9 +20,6 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    access_token_hash: Mapped[str] = mapped_column(
-        String(64), unique=True, nullable=True, index=True
-    )
     refresh_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     token_expires_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     strava_scope: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -43,6 +40,7 @@ class User(Base):
 
     # Relationships
     activities = relationship("Activity", back_populates="user", lazy="dynamic")
+    tokens = relationship("UserToken", back_populates="user", cascade="all, delete-orphan")
 
     VALID_SYNC_STATUSES = {"idle", "importing", "syncing", "complete", "error", "revoked"}
 

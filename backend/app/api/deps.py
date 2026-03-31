@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError
 from app.models.user import User
+from app.models.user_token import UserToken
 from app.services.crypto import compute_token_hash
 
 logger = logging.getLogger(__name__)
@@ -63,8 +64,10 @@ def get_current_user(
 
     # O(1) lookup via indexed SHA-256 hash of the plaintext token
     token_hash = compute_token_hash(token)
-    user = db.query(User).filter_by(access_token_hash=token_hash).first()
-    if user:
-        return user
+    user_token = db.query(UserToken).filter_by(token_hash=token_hash).first()
+    if user_token:
+        user = db.get(User, user_token.user_id)
+        if user:
+            return user
 
     raise AppError("UNAUTHORIZED", "Invalid or expired token", 401)
