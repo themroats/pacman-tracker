@@ -13,7 +13,7 @@ import pytest
 
 
 class TestAuthCallbackStoresHash:
-    """T009: strava_callback computes and stores access_token_hash."""
+    """T009: strava_callback computes token hash and stores in UserToken."""
 
     def test_callback_source_contains_compute_token_hash(self):
         import inspect
@@ -21,9 +21,9 @@ class TestAuthCallbackStoresHash:
 
         source = inspect.getsource(strava_callback)
         assert "compute_token_hash" in source, (
-            "strava_callback must compute and store access_token_hash"
+            "strava_callback must compute token hash for UserToken"
         )
-        assert "access_token_hash" in source
+        assert "UserToken" in source
 
 
 class TestTriggerSyncTransition:

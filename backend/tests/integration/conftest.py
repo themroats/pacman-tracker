@@ -43,7 +43,6 @@ def _create_test_user(session):
         strava_athlete_id=99999,
         display_name="Integration Test User",
         access_token_encrypted="enc_test",
-        access_token_hash="testhash",
         refresh_token_encrypted="ref_test",
         token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
         strava_scope="activity:read_all",

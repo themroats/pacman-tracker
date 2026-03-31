@@ -9,6 +9,7 @@ from app.models.route import RouteSuggestion, RouteSuggestionSegment
 from app.models.start_point import UserStartPoint
 from app.models.street import StreetSegment
 from app.models.user import User
+from app.models.user_token import UserToken
 
 __all__ = [
     "Activity",
@@ -24,4 +25,5 @@ __all__ = [
     "User",
     "UserStartPoint",
     "UserStreetCoverage",
+    "UserToken",
 ]
