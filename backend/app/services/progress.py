@@ -161,6 +161,34 @@ def get_city_timeline(
 
     current_pct = snapshots[-1].coverage_percentage if snapshots else 0.0
 
+    # If no snapshots yet, compute live coverage and seed a snapshot
+    if not snapshots:
+        total_streets = db.query(StreetSegment).filter_by(city_id=city_id).count()
+        if total_streets > 0:
+            traveled = (
+                db.query(UserStreetCoverage)
+                .join(StreetSegment, UserStreetCoverage.street_segment_id == StreetSegment.id)
+                .filter(
+                    UserStreetCoverage.user_id == user_id,
+                    UserStreetCoverage.is_traveled.is_(True),
+                    StreetSegment.city_id == city_id,
+                )
+                .count()
+            )
+            current_pct = traveled / total_streets * 100.0
+            if traveled > 0:
+                # Seed a snapshot so future views have a starting point
+                snap = record_daily_snapshot(db, user_id=user_id, city_id=city_id)
+                db.commit()
+                timeline = [
+                    {
+                        "date": snap.snapshot_date.isoformat(),
+                        "coverage_percentage": snap.coverage_percentage,
+                        "streets_traveled": snap.total_streets_traveled,
+                    }
+                ]
+                current_pct = snap.coverage_percentage
+
     # Gather milestones from neighborhood-level snapshots
     milestone_snaps = (
         db.query(CoverageSnapshot)
