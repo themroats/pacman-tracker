@@ -303,7 +303,6 @@ class TestGpxExportEndpoint:
             strava_athlete_id=999999,
             display_name="Other User",
             access_token_encrypted="x",
-            access_token_hash="otherhash",
             refresh_token_encrypted="x",
             token_expires_at=datetime.datetime.now(datetime.UTC),
             strava_scope="activity:read_all",

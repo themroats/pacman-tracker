@@ -25,6 +25,7 @@ from app.models.coverage import UserStreetCoverage
 from app.models.neighborhood import Neighborhood
 from app.models.street import StreetSegment
 from app.models.user import User
+from app.models.user_token import UserToken
 from app.services.crypto import compute_token_hash
 
 
@@ -83,7 +84,6 @@ def test_env():
         strava_athlete_id=55555,
         display_name="Coverage Tester",
         access_token_encrypted="enc",
-        access_token_hash=compute_token_hash("cov_token"),
         refresh_token_encrypted="ref",
         token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
         strava_scope="activity:read_all",
@@ -152,6 +152,13 @@ def test_env():
 
     city.total_street_segments = num_neighborhoods * 2
     city.total_street_length_m = num_neighborhoods * 400.0
+
+    # Create a UserToken so Bearer auth works
+    session.add(UserToken(
+        user_id=user.id,
+        token_hash=compute_token_hash("cov_token"),
+        client_name="test",
+    ))
     session.commit()
 
     yield {

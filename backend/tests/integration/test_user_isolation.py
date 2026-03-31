@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.models.activity import Activity
 from app.models.user import User
+from app.models.user_token import UserToken
 from app.services.crypto import compute_token_hash
 from tests.integration.conftest import _make_test_session, _noop_lifespan
 
@@ -32,7 +33,6 @@ def test_env():
         strava_athlete_id=111,
         display_name="User A",
         access_token_encrypted="enc_a",
-        access_token_hash=compute_token_hash("token_a"),
         refresh_token_encrypted="ref_a",
         token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
         strava_scope="activity:read_all",
@@ -42,13 +42,19 @@ def test_env():
         strava_athlete_id=222,
         display_name="User B",
         access_token_encrypted="enc_b",
-        access_token_hash=compute_token_hash("token_b"),
         refresh_token_encrypted="ref_b",
         token_expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6),
         strava_scope="activity:read_all",
         sync_status="idle",
     )
     session.add_all([user_a, user_b])
+    session.flush()
+
+    # Create token rows so Bearer auth works
+    session.add_all([
+        UserToken(user_id=user_a.id, token_hash=compute_token_hash("token_a"), client_name="frontend"),
+        UserToken(user_id=user_b.id, token_hash=compute_token_hash("token_b"), client_name="frontend"),
+    ])
     session.flush()
 
     # Create activities for each user
