@@ -356,6 +356,7 @@ export interface CoveragePlanSummary {
   total_routes: number;
   total_distance_m: number;
   initial_coverage_pct: number;
+  goal_id: number | null;
 }
 
 // ---------------------------------------------------------------------------

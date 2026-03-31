@@ -533,6 +533,7 @@ export default function CoveragePage() {
                         total_routes: plan.total_routes,
                         total_distance_m: plan.total_distance_m,
                         initial_coverage_pct: plan.initial_coverage_pct,
+                        goal_id: null,
                       }]);
                       setPlannerView("plan-detail");
                     }}

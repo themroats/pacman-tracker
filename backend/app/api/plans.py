@@ -108,6 +108,7 @@ def list_plans(
             total_routes=p.total_routes,
             total_distance_m=p.total_distance_m,
             initial_coverage_pct=p.initial_coverage_pct,
+            goal_id=p.goal_id,
         ))
     return result
 

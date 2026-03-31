@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { path: "/map", label: "Map" },
   { path: "/coverage", label: "Coverage" },
   { path: "/route", label: "Routes" },
-  { path: "/progress", label: "Progress" },
+  { path: "/profile", label: "Profile" },
 ];
 
 export default function NavBar() {

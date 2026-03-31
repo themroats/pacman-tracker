@@ -239,6 +239,7 @@ def run_coverage_matching(
             record_daily_snapshot(db, user_id=user_id, city_id=city_id)
         except Exception:
             # Non-critical — don't fail coverage matching if snapshot fails
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Snapshot recording failed", exc_info=True)
 
     return overall_ratio
