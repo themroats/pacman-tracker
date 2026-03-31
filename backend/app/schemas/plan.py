@@ -47,6 +47,7 @@ class CoveragePlanSummary(BaseModel):
     total_routes: int
     total_distance_m: float
     initial_coverage_pct: float
+    goal_id: int | None = None
 
 
 # ---------------------------------------------------------------------------
