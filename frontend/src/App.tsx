@@ -10,7 +10,8 @@ import HomePage from "@/pages/HomePage";
 import MapPage from "@/pages/MapPage";
 import CoveragePage from "@/pages/CoveragePage";
 import RoutePage from "@/pages/RoutePage";
-import ProgressPage from "@/pages/ProgressPage";
+import ProfilePage from "@/pages/ProfilePage";
+import ActivityDetailPage from "@/pages/ActivityDetailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 
 function App() {
@@ -28,7 +29,8 @@ function App() {
               <Route path="/map" element={<MapPage />} />
               <Route path="/coverage" element={<CoveragePage />} />
               <Route path="/route" element={<RoutePage />} />
-              <Route path="/progress" element={<ProgressPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/activity/:id" element={<ActivityDetailPage />} />
             </Route>
           </Routes>
         </BrowserRouter>
