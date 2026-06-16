@@ -54,6 +54,16 @@ htmlcov/
 .pytest_cache/
 .nyc_output/
 
+# Playwright (browser verification harness)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.playwright/
+verify-backend-*.log
+
+# Verification snapshot — generated locally, not committed (see snapshot/README.md)
+specs/008-browser-verification-harness/snapshot/*.dump
+
 # Database
 *.db
 *.sqlite

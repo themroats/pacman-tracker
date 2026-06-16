@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     max_overflow: int = 20
     use_azure_identity: bool = False
 
+    # --- Local verification harness (feature 008) ---
+    # Dedicated, isolated database used ONLY by the local browser verification
+    # harness. The seed/reset/snapshot scripts refuse to run against any database
+    # whose name does not match this URL's database name.
+    verification_database_url: str = (
+        "postgresql://pacman:pacman_dev@localhost:5432/pacman_verify"
+    )
+
     # --- OSRM ---
     osrm_url: str = "http://localhost:5000"
 
