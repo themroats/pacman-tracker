@@ -8,7 +8,7 @@ These are the command-line contracts for the Python scripts that manage the veri
 
 ## `snapshot_verification.py` — build / restore the frozen Seattle snapshot
 
-### Build (one-time, produces committed artifact)
+### Build (one-time, produces a local gitignored artifact)
 ```text
 python -m app.scripts.snapshot_verification build \
     --output specs/008-browser-verification-harness/snapshot/seattle.dump
@@ -25,7 +25,7 @@ python -m app.scripts.snapshot_verification restore \
     --database-url postgresql://pacman:pacman_dev@localhost:5432/pacman_verify
 ```
 - **Precondition**: target DB exists with PostGIS extension; URL is the verification DB.
-- **Behavior**: drops/recreates snapshot tables, restores street/neighborhood/city data.
+- **Behavior**: clears existing snapshot rows (TRUNCATE ... CASCADE), then performs a data-only restore of street/neighborhood/city data into the migration-created tables. Idempotent: re-running yields the same baseline.
 - **Guard**: refuses if target DB name is not the configured verification DB (default `pacman_verify`). Exit `4`.
 - **Exit codes**: `0` success; `4` refused (not verification DB); `5` restore failure.
 

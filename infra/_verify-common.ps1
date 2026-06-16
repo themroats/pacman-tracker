@@ -129,8 +129,10 @@ function Remove-VerificationDb {
 
 function Test-VerificationDbSeeded {
     param([string]$Url)
-    # Seeded when at least one user row exists.
-    $count = Invoke-Psql -Url $Url -Sql "SELECT count(*) FROM users"
+    # Seeded only when the specific synthetic demo user exists. Checking for any
+    # user would wrongly treat an unrelated non-empty DB as a valid baseline and
+    # could let the DEV_AUTH_BYPASS "first user" resolve to the wrong identity.
+    $count = Invoke-Psql -Url $Url -Sql "SELECT count(*) FROM users WHERE strava_athlete_id = 9000000001"
     return ([int]$count -gt 0)
 }
 

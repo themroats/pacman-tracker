@@ -44,25 +44,39 @@ EXIT_SNAPSHOT_MISSING = 6
 
 
 def ensure_demo_user(session: Session) -> User:
-    """Create the single demo user if absent; return it. Idempotent."""
-    user = session.scalar(select(User).where(User.strava_athlete_id == DEMO_STRAVA_ATHLETE_ID))
-    if user is not None:
-        return user
+    """Ensure the demo user exists and is the ONLY user. Idempotent.
 
-    city = session.scalar(select(City).order_by(City.id))
-    encrypted = encrypt_token(DEMO_TOKEN_PLACEHOLDER)
-    user = User(
-        strava_athlete_id=DEMO_STRAVA_ATHLETE_ID,
-        display_name=DEMO_DISPLAY_NAME,
-        access_token_encrypted=encrypted,
-        refresh_token_encrypted=encrypted,
-        token_expires_at=datetime.datetime(2099, 1, 1),
-        strava_scope="read,activity:read",
-        home_city_id=city.id if city else None,
-        sync_status="complete",
-        last_sync_at=datetime.datetime.now(datetime.UTC),
-    )
-    session.add(user)
+    DEV_AUTH_BYPASS authenticates every request as the first user, so the harness
+    is only deterministic when the synthetic demo user is the sole user in the
+    verification DB. Any other users are removed (along with their dependent rows)
+    to guarantee that invariant.
+    """
+    user = session.scalar(select(User).where(User.strava_athlete_id == DEMO_STRAVA_ATHLETE_ID))
+    if user is None:
+        city = session.scalar(select(City).order_by(City.id))
+        encrypted = encrypt_token(DEMO_TOKEN_PLACEHOLDER)
+        user = User(
+            strava_athlete_id=DEMO_STRAVA_ATHLETE_ID,
+            display_name=DEMO_DISPLAY_NAME,
+            access_token_encrypted=encrypted,
+            refresh_token_encrypted=encrypted,
+            token_expires_at=datetime.datetime(2099, 1, 1),
+            strava_scope="read,activity:read",
+            home_city_id=city.id if city else None,
+            sync_status="complete",
+            last_sync_at=datetime.datetime.now(datetime.UTC),
+        )
+        session.add(user)
+        session.flush()
+
+    # Determinism: the bypass picks the first user, so the demo user must be the
+    # only one. Drop any others plus their dependent run data.
+    others = session.scalars(select(User).where(User.id != user.id)).all()
+    for other in others:
+        session.query(CoverageSnapshot).filter_by(user_id=other.id).delete()
+        session.query(UserStreetCoverage).filter_by(user_id=other.id).delete()
+        session.query(Activity).filter_by(user_id=other.id).delete()
+        session.delete(other)
     session.flush()
     return user
 

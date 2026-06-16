@@ -5,8 +5,8 @@ Provides two subcommands:
 
 * ``build``   — ``pg_dump`` the street baseline tables (``cities``,
   ``neighborhoods``, ``street_segments``) ONLY from a source PostGIS database to
-  a committed artifact. No user/activity/coverage tables are dumped, so no
-  private data is ever captured.
+  a local artifact (gitignored; not committed). No user/activity/coverage tables
+  are dumped, so no private data is ever captured.
 * ``restore`` — restore that artifact into the isolated verification database
   (guarded so it can only target the verification DB).
 
@@ -25,7 +25,10 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
+from sqlalchemy import text
+
 from app.config import get_settings
+from app.database import create_db_engine
 from app.scripts._verify_guard import assert_verification_db, resolve_verification_url
 
 # Baseline tables that form the frozen street snapshot. Order matters for
@@ -69,12 +72,18 @@ def build(source_url: str, output: str) -> int:
 
     print(f"Dumping {', '.join(SNAPSHOT_TABLES)} -> {output}")
     try:
-        subprocess.run(cmd, env=_pg_env(source_url), check=True)
+        result = subprocess.run(cmd, env=_pg_env(source_url), capture_output=True, text=True)
     except FileNotFoundError:
         print("pg_dump not found on PATH. Install PostgreSQL client tools.", file=sys.stderr)
         return EXIT_DUMP_FAILED
-    except subprocess.CalledProcessError as exc:
-        print(f"pg_dump failed (exit {exc.returncode}).", file=sys.stderr)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="")
+    if result.returncode != 0:
+        lowered = result.stderr.lower()
+        if "no matching tables were found" in lowered or "does not exist" in lowered:
+            print("Source database is missing required snapshot tables.", file=sys.stderr)
+            return EXIT_SOURCE_MISSING_TABLES
+        print(f"pg_dump failed (exit {result.returncode}).", file=sys.stderr)
         return EXIT_DUMP_FAILED
     print("Snapshot build complete.")
     return 0
@@ -87,6 +96,17 @@ def restore(target_url: str, input_path: str) -> int:
     if not os.path.exists(input_path):
         print(f"Snapshot artifact not found: {input_path}", file=sys.stderr)
         return EXIT_RESTORE_FAILED
+
+    # Idempotency: clear any existing snapshot rows first so re-running restore on
+    # a non-empty verification DB does not fail with duplicate-key errors. CASCADE
+    # also drops dependent demo rows (coverage/activities), which the seed step
+    # recreates afterwards.
+    engine = create_db_engine(target_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f"TRUNCATE {', '.join(SNAPSHOT_TABLES)} RESTART IDENTITY CASCADE"))
+    finally:
+        engine.dispose()
 
     # --data-only loads the baseline rows into tables that already exist (created
     # by `alembic upgrade head`). The dump's TOC order (cities -> neighborhoods ->

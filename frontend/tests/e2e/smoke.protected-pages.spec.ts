@@ -51,16 +51,15 @@ test.describe("US1 — reach protected pages without OAuth", () => {
 
     // Exercise a control the user would use — the city/area selector.
     const selector = page.getByRole("combobox").first();
-    if (await selector.count()) {
-      await selector.click().catch(() => {});
-    }
+    await expect(selector).toBeVisible();
+    await selector.click();
 
     const evidence = await finalize();
 
-    // Backend interactions were observable and none failed unexpectedly.
+    // Backend interactions were observable (at least one call) and none failed.
     const result = makeResult(
       evidence,
-      (e) => e.network.every((n) => n.status < 500),
+      (e) => e.network.length > 0 && e.network.every((n) => n.status < 500),
       "Coverage interactions produced observable, non-erroring backend calls.",
     );
     expect(result.outcome, JSON.stringify(result.evidence, null, 2)).toBe("pass");

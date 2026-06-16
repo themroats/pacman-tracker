@@ -17,7 +17,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: process.env.VERIFY_BASE_URL ?? "http://localhost:5173",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
   },

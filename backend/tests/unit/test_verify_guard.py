@@ -44,8 +44,10 @@ class TestVerificationDbGuard:
 
 
 class TestBypassDefaultOff:
-    def test_dev_auth_bypass_defaults_off(self):
+    def test_dev_auth_bypass_defaults_off(self, monkeypatch):
         """Default settings (no env override) must keep the bypass disabled."""
+        # Ignore any ambient env var so we assert the code default, not the shell.
+        monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
         # Construct settings ignoring any .env so we assert the code default.
         defaults = Settings(_env_file=None)
         assert defaults.dev_auth_bypass is False
