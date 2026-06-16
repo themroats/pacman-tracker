@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-28
 - N/A (frontend-only changes, no data model changes) (004-mobile-responsive-ui)
 - Python 3.12+ + FastAPI, SQLAlchemy 2.0+, GeoAlchemy2, Alembic, psycopg2-binary, azure-identity, testcontainers-python (005-database-migration)
 - PostgreSQL 16 + PostGIS 3.4 (Azure Database for PostgreSQL Flexible Server in production; Docker container locally) (005-database-migration)
+- Python 3.12+ (backend, seed/reset scripts); TypeScript 5.6 / Node 20 (frontend, Playwright harness) + FastAPI, SQLAlchemy 2.0, GeoAlchemy2, PostGIS; React 18 + Vite; Playwright (`@playwright/test`) — new dev dependency for browser driving and network interception (008-browser-verification-harness)
+- PostgreSQL 16 + PostGIS 3.4 (dedicated `pacman_verify` database, isolated from dev `pacman` DB); frozen snapshot artifact as a `pg_dump` (custom or plain SQL format) (008-browser-verification-harness)
 
 - Python 3.12+ (backend), TypeScript 5.x (frontend) + FastAPI, Uvicorn, Shapely, GeoPandas, OSMnx, react-leaflet, OSRM (001-strava-street-mapper)
 
@@ -31,9 +33,9 @@ cd src; pytest; ruff check .
 Python 3.12+ (backend), TypeScript 5.x (frontend): Follow standard conventions
 
 ## Recent Changes
+- 008-browser-verification-harness: Added Python 3.12+ (backend, seed/reset scripts); TypeScript 5.6 / Node 20 (frontend, Playwright harness) + FastAPI, SQLAlchemy 2.0, GeoAlchemy2, PostGIS; React 18 + Vite; Playwright (`@playwright/test`) — new dev dependency for browser driving and network interception
 - 005-database-migration: Added Python 3.12+ + FastAPI, SQLAlchemy 2.0+, GeoAlchemy2, Alembic, psycopg2-binary, azure-identity, testcontainers-python
 - 004-mobile-responsive-ui: Added TypeScript ~5.6, React 18.3, Vite 6.0 + react-router-dom 6.22, zustand 4.5, leaflet 1.9.4, react-leaflet 4.2.1
-- 003-deploy-routing-service: Added PowerShell (Azure CLI commands), Shell scripts (ACI entrypoints) + Azure CLI, `osrm/osrm-backend:latest` container image
 
 
 <!-- MANUAL ADDITIONS START -->
