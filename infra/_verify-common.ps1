@@ -15,10 +15,14 @@ function Get-RepoRoot {
 
 # Resolve the Python interpreter to use for backend commands. Prefer the repo
 # virtualenv so the launchers work whether or not the venv is activated in the
-# calling shell; fall back to whatever `python` is on PATH.
+# calling shell; fall back to whatever `python` is on PATH. Checks both the
+# Windows (.venv\Scripts) and POSIX (.venv/bin) interpreter layouts.
 function Get-BackendPython {
-    $venvPython = Join-Path (Get-RepoRoot) ".venv\Scripts\python.exe"
-    if (Test-Path $venvPython) { return $venvPython }
+    $repoRoot = Get-RepoRoot
+    foreach ($rel in @(".venv\Scripts\python.exe", ".venv/bin/python")) {
+        $candidate = Join-Path $repoRoot $rel
+        if (Test-Path $candidate) { return $candidate }
+    }
     return "python"
 }
 
@@ -30,14 +34,22 @@ function Assert-Command {
 }
 
 # Validate that a usable backend Python interpreter exists. Prefers the repo
-# virtualenv, so — unlike `Assert-Command python` — this does not require a system
-# `python` on PATH when the venv interpreter is present.
+# virtualenv (Windows or POSIX layout), so — unlike `Assert-Command python` — this
+# does not require a system `python` on PATH when the venv interpreter is present.
 function Assert-BackendPython {
-    $venvPython = Join-Path (Get-RepoRoot) ".venv\Scripts\python.exe"
-    if (Test-Path $venvPython) { return }
+    $repoRoot = Get-RepoRoot
+    foreach ($rel in @(".venv\Scripts\python.exe", ".venv/bin/python")) {
+        if (Test-Path (Join-Path $repoRoot $rel)) { return }
+    }
     if (Get-Command python -ErrorAction SilentlyContinue) { return }
     throw "No backend Python found. Create the project virtualenv " +
           "(python -m venv .venv) or ensure 'python' is on PATH."
+}
+
+# True if host 'psql' and 'pg_restore' are both on PATH — snapshot restore needs
+# pg_restore, so a partial install (psql only) should not pass the preflight.
+function Test-HostDbTools {
+    return ((Test-HostCommand psql) -and (Test-HostCommand pg_restore))
 }
 
 function Test-HostCommand {
@@ -262,26 +274,42 @@ function Start-Frontend {
 
 # True if a local TCP port is already being listened on. Used to keep the warm
 # launcher idempotent (don't spawn a second backend that can't bind the port).
+# Uses Get-NetTCPConnection where available (Windows), else a portable loopback
+# TcpClient probe so the check still works on PowerShell Core on macOS/Linux.
 function Test-PortInUse {
     param([int]$Port)
+    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+        try {
+            return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+        } catch { }
+    }
+    $client = [System.Net.Sockets.TcpClient]::new()
     try {
-        return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+        $client.Connect("127.0.0.1", $Port)
+        return $true
     } catch {
         return $false
+    } finally {
+        $client.Dispose()
     }
 }
 
 # Stop whatever process is listening on a local port. Used by verify-clean to
-# actually stop warm services before a clean bring-up.
+# actually stop warm services before a clean bring-up. Falls back to `lsof` when
+# Get-NetTCPConnection is unavailable (macOS/Linux).
 function Stop-ProcessOnPort {
     param([int]$Port)
-    try {
-        $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-    } catch {
-        return
+    $procIds = @()
+    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+        try {
+            $procIds = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty OwningProcess -Unique
+        } catch { }
+    } elseif (Get-Command lsof -ErrorAction SilentlyContinue) {
+        $procIds = lsof -ti "tcp:$Port" -sTCP:LISTEN 2>$null
     }
-    if (-not $conns) { return }
-    foreach ($procId in ($conns | Select-Object -ExpandProperty OwningProcess -Unique)) {
+    foreach ($procId in $procIds) {
+        if (-not $procId) { continue }
         try {
             Stop-Process -Id $procId -Force -ErrorAction Stop
             Write-Host "  stopped process $procId on port $Port" -ForegroundColor DarkGray

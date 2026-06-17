@@ -25,10 +25,10 @@ infra\verify-up.ps1 [-Headed] [-Port 8000] [-FrontendPort 5173]
 ```powershell
 infra\verify-reset.ps1
 ```
-- **Behavior**: invoke `python -m app.scripts.reset_verification` against `pacman_verify`; clear process-local warm state where applicable (OSRM availability cache, active sync jobs).
-- **Precondition**: stack already warm (from `verify-up`).
+- **Behavior**: invoke `python -m app.scripts.reset_verification` against `pacman_verify` to restore the demo baseline. This resets DB state only — the reset runs in a separate process and cannot clear the already-running backend's in-memory caches (e.g. the OSRM availability flag, active sync jobs); those clear via their own TTL/force-check or a `verify-clean` restart.
+- **Precondition**: stack already warm (from `verify-up`); the verification DB exists and is seeded.
 - **Postcondition**: dataset restored to baseline; back-to-back verification stays fast (seconds).
-- **Exit codes**: `0` reset; `7` baseline missing (run `verify-up` first).
+- **Exit codes**: `0` reset; non-zero with a message if the verification DB is missing or unseeded (run `verify-up` first).
 
 ## `verify-clean.ps1` — clean full bring-up (final pre-push check)
 

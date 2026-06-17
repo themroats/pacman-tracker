@@ -37,15 +37,16 @@ python -m app.scripts.snapshot_verification restore \
 python -m app.scripts.seed_verification \
     --database-url postgresql://.../pacman_verify
 ```
-- **Precondition**: snapshot already restored (city/neighborhoods/streets present); `users` empty.
+- **Precondition**: snapshot already restored (city/neighborhoods/streets present); `users` empty (no non-demo users).
 - **Behavior** (idempotent):
+  0. Refuse (exit `8`) if any non-demo users already exist — `DEV_AUTH_BYPASS` authenticates as the first user, so determinism requires the demo user be the only one. The fix is to rebuild the verification DB (`infra/verify-clean.ps1`), not to delete rows.
   1. Insert exactly one demo `User` (id=1, synthetic `strava_athlete_id`, `sync_status="complete"`, placeholder encrypted tokens — never real).
   2. Insert N sample `Activity` rows with `gps_trace` over real Seattle streets, `import_status="matched"`.
   3. Insert `UserStreetCoverage` + `CoverageSnapshot` rows so dashboards render non-empty.
 - **Postcondition**: `SELECT count(*) FROM users = 1`; protected pages have content.
 - **Guard**: refuses to run unless target is the verification DB. Exit `4`.
 - **Idempotency**: re-running yields the same baseline (no duplicate users/activities).
-- **Exit codes**: `0` success; `4` refused (not verification DB); `6` snapshot tables missing.
+- **Exit codes**: `0` success; `4` refused (not verification DB); `6` snapshot tables missing; `8` refused (non-demo users present — rebuild the verification DB).
 
 ---
 
@@ -62,8 +63,9 @@ python -m app.scripts.reset_verification \
   3. Does NOT truncate `cities`/`neighborhoods`/`street_segments`.
 - **Postcondition**: dataset identical to the post-seed baseline; `users` still has exactly the demo user.
 - **Note on process-local state**: this script resets DB state only. The launcher restart-free warm loop also clears process-local caches (`routing._osrm_available`, `clear_active_sync_jobs()`); if those run in the live backend process, the harness triggers them via the existing `force=True`/recovery paths or a backend restart in `verify-clean`.
+- **Missing baseline**: if the demo user is absent it is re-established automatically (delegates to `ensure_demo_user`) rather than failing — there is no dedicated exit code for a missing baseline.
 - **Guard**: refuses unless target is the verification DB. Exit `4`.
-- **Exit codes**: `0` success; `4` refused (not verification DB); `7` baseline missing (suggest running `seed_verification`).
+- **Exit codes**: `0` success; `4` refused (not verification DB); `8` refused (non-demo users present, surfaced via the re-establish path).
 
 ---
 

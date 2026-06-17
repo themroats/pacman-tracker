@@ -24,8 +24,8 @@ $RepoRoot = Get-RepoRoot
 $DbUrl = Get-VerificationDbUrl
 
 Assert-BackendPython
-if (-not ((Test-HostCommand psql) -or (Test-DbContainerRunning (Get-DbContainer)))) {
-    throw "Need either host 'psql' on PATH or the running DB container " +
+if (-not ((Test-HostDbTools) -or (Test-DbContainerRunning (Get-DbContainer)))) {
+    throw "Need host 'psql' + 'pg_restore' on PATH, or the running DB container " +
           "'$(Get-DbContainer)'. Start it with: docker compose up -d db"
 }
 if (-not $NoFrontend) { Assert-Command npm "Install Node.js 20+." }
