@@ -16,7 +16,7 @@ import pytest
 
 
 class TestStravaOAuthAuthorizeURL:
-    """T083: Test authorization URL generation."""
+    """Test authorization URL generation."""
 
     @pytest.mark.asyncio
     async def test_authorize_url_contains_required_params(self):
@@ -46,7 +46,7 @@ class TestStravaOAuthAuthorizeURL:
 
 
 class TestStravaTokenExchange:
-    """T083: Test token exchange with recorded responses."""
+    """Test token exchange with recorded responses."""
 
     MOCK_TOKEN_RESPONSE = {
         "token_type": "Bearer",
@@ -100,7 +100,7 @@ class TestStravaTokenExchange:
 
 
 class TestStravaTokenRefresh:
-    """T083: Test token refresh with recorded responses."""
+    """Test token refresh with recorded responses."""
 
     MOCK_REFRESH_RESPONSE = {
         "token_type": "Bearer",

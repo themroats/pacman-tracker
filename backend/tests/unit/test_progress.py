@@ -1,5 +1,5 @@
 """
-T093 — Unit tests for the progress / snapshot service.
+Unit tests for the progress / snapshot service.
 
 Tests:
 - Daily snapshot creation

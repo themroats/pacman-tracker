@@ -1,5 +1,5 @@
 """
-Pydantic schemas for Route Suggestions (US3, T055).
+Pydantic schemas for Route Suggestions.
 """
 
 from pydantic import BaseModel, Field

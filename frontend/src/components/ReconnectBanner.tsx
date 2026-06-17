@@ -1,5 +1,5 @@
 /**
- * T098 — ReconnectBanner
+ * ReconnectBanner
  *
  * Shows a banner prompting the user to reconnect Strava when their token has been revoked.
  */

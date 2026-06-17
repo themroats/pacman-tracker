@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Clean full bring-up of the verification stack (feature 008) for a final pre-push check.
+    Clean full bring-up of the verification stack for a final pre-push check.
 
 .DESCRIPTION
     Stops any warm verification services, then rebuilds the isolated verification

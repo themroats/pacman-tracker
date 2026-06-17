@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     max_overflow: int = 20
     use_azure_identity: bool = False
 
-    # --- Local verification harness (feature 008) ---
+    # --- Local verification harness ---
     # Dedicated, isolated database used ONLY by the local browser verification
     # harness. The seed/reset/snapshot scripts refuse to run against any database
     # whose name does not match this URL's database name.

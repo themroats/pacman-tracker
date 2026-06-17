@@ -1,5 +1,5 @@
 /**
- * T069 — TimelineChart
+ * TimelineChart
  *
  * Simple SVG line chart showing coverage percentage over time with milestone markers.
  * No external chart library — lightweight inline SVG approach.

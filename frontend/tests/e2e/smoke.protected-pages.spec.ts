@@ -3,7 +3,7 @@ import { seedAuth } from "./helpers/auth";
 import { startEvidence, makeResult } from "./helpers/evidence";
 
 /**
- * User Story 1 (P1) — Verify a protected-page fix in a real browser without
+ * Verify a protected-page fix in a real browser without
  * Strava OAuth.
  *
  * Prerequisites: the warm verification stack is running (infra/verify-up.ps1),
@@ -11,10 +11,10 @@ import { startEvidence, makeResult } from "./helpers/evidence";
  * frontend dev server on :5173.
  */
 
-test.describe("US1 — reach protected pages without OAuth", () => {
+test.describe("reach protected pages without OAuth", () => {
   test.beforeEach(async ({ page }) => {
     // Seed the authenticated demo session BEFORE any navigation so the app does
-    // not redirect to the Strava login screen (acceptance 1).
+    // not redirect to the Strava login screen.
     await seedAuth(page);
   });
 

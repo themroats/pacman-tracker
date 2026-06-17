@@ -1,5 +1,5 @@
 """
-Unit test for batched coverage query (SC-007).
+Unit test for batched coverage query.
 
 Verifies:
 - city_coverage() endpoint uses at most 2 DB queries (neighborhoods + coverage)
@@ -173,7 +173,7 @@ def test_env():
 
 
 class TestBatchedCoverageQuery:
-    """SC-007: Coverage page loads neighborhood data using at most 2 DB queries."""
+    """Coverage page loads neighborhood data with a bounded query count (no N+1)."""
 
     def test_city_coverage_returns_all_neighborhoods(self, test_env):
         """Endpoint returns coverage for all neighborhoods in a single request."""

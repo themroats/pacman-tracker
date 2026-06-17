@@ -1,4 +1,4 @@
-# Browser Verification Harness (feature 008)
+# Browser Verification Harness
 
 Local-only Playwright harness that drives the running web app in a real browser to
 confirm a fix works **before pushing**, without completing real Strava OAuth. It
@@ -43,7 +43,7 @@ infra\verify-reset.ps1
 infra\verify-clean.ps1
 ```
 
-## Verifying the bypass CRITICAL log (FR-009)
+## Verifying the bypass CRITICAL log
 
 When `verify-up.ps1` starts the backend with `DEV_AUTH_BYPASS=1`, the first
 authenticated request emits a CRITICAL warning in the backend console, e.g.:
@@ -65,7 +65,7 @@ presence is the sole safeguard (by design) that the bypass is active.
 - `helpers/evidence.ts` — `startEvidence(page)` + `makeResult(...)` capture page
   content, console errors, and network outcomes and produce a pass/fail result.
 
-## Out of scope — authentication changes (FR-012)
+## Out of scope — authentication changes
 
 The bypass disables real authentication, so **auth/session/token changes cannot be
 validly verified with this harness**. Verifying those requires a separate real-auth

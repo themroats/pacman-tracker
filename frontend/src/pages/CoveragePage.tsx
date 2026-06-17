@@ -1,5 +1,5 @@
 /**
- * T052 — CoveragePage
+ * CoveragePage
  *
  * Full-featured street coverage dashboard:
  * - City / neighborhood selectors

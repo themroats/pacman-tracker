@@ -1,5 +1,5 @@
 """
-T091 — Route suggestion algorithm tests.
+Route suggestion algorithm tests.
 
 Tests:
 - Waypoint selection from untraveled streets
@@ -257,7 +257,7 @@ class TestPersistSegments:
 
 
 # ---------------------------------------------------------------------------
-# Variation & Preference Tests (FR-001, FR-002)
+# Variation & Preference Tests
 # ---------------------------------------------------------------------------
 
 

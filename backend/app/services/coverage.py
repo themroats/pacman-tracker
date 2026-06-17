@@ -1,5 +1,5 @@
 """
-GPS-to-street matching service (T044 + T099).
+GPS-to-street matching service.
 
 Core algorithms:
 - Buffer GPS trace by 15 m, intersect with street segments, compute coverage_ratio.
@@ -231,7 +231,7 @@ def run_coverage_matching(
 
     db.flush()
 
-    # Record a daily progress snapshot for the city (T067)
+    # Record a daily progress snapshot for the city
     if city_id:
         try:
             from app.services.progress import record_daily_snapshot

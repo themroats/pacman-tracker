@@ -1,12 +1,12 @@
 import type { Page, Route } from "@playwright/test";
 
 /**
- * Browser/network-layer response forcing for the verification harness (feature 008).
+ * Browser/network-layer response forcing for the verification harness.
  *
  * These helpers intercept HTTP requests in the browser using Playwright's route
  * API and fulfill them with a synthetic status/body. The real backend is NEVER
  * contacted for a forced request, so error-state UI can be reproduced
- * deterministically without any backend changes (FR-008).
+ * deterministically without any backend changes.
  */
 
 export interface ForcedResponse {
@@ -38,7 +38,7 @@ export async function clearForcedResponse(page: Page, urlPattern: string): Promi
 }
 
 /**
- * Presets for the three priority error states (SC-004). Each returns a
+ * Presets for the three priority error states. Each returns a
  * {@link ForcedResponse} for a given URL pattern. Bodies use the app's error
  * envelope ({ error: { code, message, details } }) so the frontend surfaces the
  * message via its global error handler.

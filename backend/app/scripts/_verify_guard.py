@@ -1,5 +1,5 @@
 """
-Safety guard for verification-harness scripts (feature 008).
+Safety guard for verification-harness scripts.
 
 Every seed/reset/snapshot-restore operation MUST run ONLY against the dedicated,
 isolated verification database. This module resolves the target database name and

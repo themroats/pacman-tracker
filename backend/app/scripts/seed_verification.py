@@ -1,5 +1,5 @@
 """
-Seed the isolated verification database (feature 008).
+Seed the isolated verification database.
 
 Layers a single demo user plus deterministic sample activities and coverage on
 top of a restored street snapshot, so protected pages render meaningfully in the

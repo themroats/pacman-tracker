@@ -1,5 +1,5 @@
 """
-Pydantic schemas for Coverage (US2).
+Pydantic schemas for Coverage.
 
 Covers:
 - City-wide summary with neighborhood breakdown

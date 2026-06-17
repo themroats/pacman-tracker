@@ -16,7 +16,7 @@ import pytest
 
 
 class TestTwoPhaseImport:
-    """T084: Test the two-phase import strategy."""
+    """Test the two-phase import strategy."""
 
     @pytest.mark.asyncio
     async def test_phase_a_imports_polylines(self):
@@ -197,7 +197,7 @@ class TestTwoPhaseImport:
 
 
 class TestActivityDeduplication:
-    """T084: Test that duplicate activities are not re-imported."""
+    """Test that duplicate activities are not re-imported."""
 
     @pytest.mark.asyncio
     async def test_duplicate_strava_id_skipped(self):
@@ -235,7 +235,7 @@ class TestActivityDeduplication:
 
 
 class TestRateLimitHandling:
-    """T084: Test rate limit behaviour during import."""
+    """Test rate limit behaviour during import."""
 
     @pytest.mark.asyncio
     @patch("app.services.importer.asyncio.sleep", new_callable=AsyncMock)

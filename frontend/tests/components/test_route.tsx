@@ -1,5 +1,5 @@
 /**
- * T092 — Frontend route suggestion component tests.
+ * Frontend route suggestion component tests.
  *
  * Tests for:
  * - RouteForm: starting point, distance, neighborhood inputs

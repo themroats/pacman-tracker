@@ -2,16 +2,16 @@
  * Tests for toast notification system.
  *
  * Covers:
- * - T010: addToast/removeToast in Zustand store
- * - T011: ToastContainer renders toasts
- * - T012: ToastContainer is mounted in App
+ * - addToast/removeToast in Zustand store
+ * - ToastContainer renders toasts
+ * - ToastContainer is mounted in App
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-describe("Toast Store (T010)", () => {
+describe("Toast Store", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
@@ -91,7 +91,7 @@ describe("Toast Store (T010)", () => {
   });
 });
 
-describe("ToastContainer (T011 + T012)", () => {
+describe("ToastContainer", () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -145,7 +145,7 @@ describe("ToastContainer (T011 + T012)", () => {
   });
 });
 
-describe("App mounts ToastContainer (T012)", () => {
+describe("App mounts ToastContainer", () => {
   it("App.tsx imports ToastContainer", async () => {
     // Verify by checking the import exists in the source
     const fs = await import("fs");

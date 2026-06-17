@@ -1,5 +1,5 @@
 """
-Unit tests for the verification seed script (feature 008, T017).
+Unit tests for the verification seed script.
 
 Tests the seed building blocks directly against a PostGIS test database. They run
 offline (no OSM downloads, no Strava). The guarded CLI entrypoint is covered
@@ -135,7 +135,7 @@ class TestSeedSampleData:
         assert exc.value.code == EXIT_UNEXPECTED_USERS
 
     def test_repeated_seed_produces_identical_baseline(self, db_session):
-        """T023 — re-seeding yields the same baseline (deterministic, SC-003)."""
+        """Re-seeding yields the same baseline (deterministic)."""
         _build_snapshot(db_session)
         user = ensure_demo_user(db_session)
 

@@ -1,5 +1,5 @@
 """
-T088 -- Coverage API integration tests.
+Coverage API integration tests.
 
 Tests:
 - GET /coverage/city/{city_id}  -> city summary + neighborhoods

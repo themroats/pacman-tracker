@@ -84,7 +84,7 @@ class TestEncryptionProperties:
 
 
 class TestComputeTokenHash:
-    """Unit tests for the SHA-256 token hash function (T005)."""
+    """Unit tests for the SHA-256 token hash function."""
 
     def test_returns_64_char_hex_string(self):
         from app.services.crypto import compute_token_hash

@@ -4,14 +4,14 @@ import { forceResponse, ErrorPresets } from "./helpers/intercept";
 import { startEvidence, makeResult } from "./helpers/evidence";
 
 /**
- * User Story 3 (P3) — Verify error-state and edge-case UX deterministically.
+ * Verify error-state and edge-case UX deterministically.
  *
  * Forces backend responses at the browser/network layer so error UI appears
- * reliably without changing the real backend (FR-008). Prerequisites: the warm
+ * reliably without changing the real backend. Prerequisites: the warm
  * verification stack is running (infra/verify-up.ps1).
  */
 
-test.describe("US3 — error-state UX", () => {
+test.describe("error-state UX", () => {
   test.beforeEach(async ({ page }) => {
     await seedAuth(page);
   });
@@ -82,7 +82,7 @@ test.describe("US3 — error-state UX", () => {
     expect(result.outcome, JSON.stringify(result.evidence, null, 2)).toBe(
       result.expected ? "pass" : "fail",
     );
-    // Distinguish expected error UI from an unexpected failure (FR-007).
+    // Distinguish expected error UI from an unexpected failure.
     expect(result.expected).toBe(true);
   });
 });

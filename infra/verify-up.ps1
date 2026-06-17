@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Thin warm launcher for the local browser verification harness (feature 008).
+    Thin warm launcher for the local browser verification harness.
 
 .DESCRIPTION
     Brings up the isolated verification database (pacman_verify), the backend with

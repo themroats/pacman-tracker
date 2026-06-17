@@ -1,5 +1,5 @@
 /**
- * T061 — RouteLayer
+ * RouteLayer
  *
  * Renders a suggested route on the Leaflet map.
  * The full OSRM route is shown as a dashed line.

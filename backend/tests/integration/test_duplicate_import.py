@@ -1,5 +1,5 @@
 """
-Integration tests for duplicate activity import handling (SC-004).
+Integration tests for duplicate activity import handling.
 
 Verifies:
 - Importing the same strava_activity_id twice does not raise IntegrityError
@@ -68,7 +68,7 @@ def db_session():
 
 
 class TestDuplicateActivityImport:
-    """SC-004: Duplicate activity imports handled gracefully with zero DB constraint violations."""
+    """Duplicate activity imports handled gracefully with zero DB constraint violations."""
 
     def test_inserting_duplicate_strava_id_is_skipped(self, db_session: Session):
         """Adding an activity with a duplicate strava_activity_id should not crash."""

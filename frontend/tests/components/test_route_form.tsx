@@ -2,15 +2,15 @@
  * Tests for RouteForm validation and state management.
  *
  * Covers:
- * - T048: RouteForm useEffect reloads neighborhoods on cityId change
- * - T058: Coordinate range validation
- * - T059: Distance validation (max 50 km)
- * - T060: OSRM unavailable disables form
+ * - RouteForm useEffect reloads neighborhoods on cityId change
+ * - Coordinate range validation
+ * - Distance validation (max 50 km)
+ * - OSRM unavailable disables form
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-describe("RouteForm source validation (T048, T058, T059)", () => {
+describe("RouteForm source validation", () => {
   it("RouteForm useEffect depends on cityId", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -22,7 +22,7 @@ describe("RouteForm source validation (T048, T058, T059)", () => {
       "utf-8"
     );
 
-    // T048: useEffect dependency includes cityId
+    // useEffect dependency includes cityId
     expect(source).toContain("[cityId, onCityChange]");
     // Should NOT have empty dependency array with eslint-disable
     expect(source).not.toContain("// eslint-disable-line react-hooks/exhaustive-deps");
@@ -39,7 +39,7 @@ describe("RouteForm source validation (T048, T058, T059)", () => {
       "utf-8"
     );
 
-    // T058: Coordinate validation
+    // Coordinate validation
     expect(source).toContain("Longitude must be");
     expect(source).toContain("Latitude must be");
     expect(source).toContain("-180");
@@ -57,7 +57,7 @@ describe("RouteForm source validation (T048, T058, T059)", () => {
       "utf-8"
     );
 
-    // T059: Distance validation
+    // Distance validation
     expect(source).toContain("Distance must be");
     expect(source).toContain("50");
   });
@@ -78,7 +78,7 @@ describe("RouteForm source validation (T048, T058, T059)", () => {
   });
 });
 
-describe("FilterPanel state sync (T049)", () => {
+describe("FilterPanel state sync", () => {
   it("FilterPanel uses useEffect to sync local state from props", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -96,7 +96,7 @@ describe("FilterPanel state sync (T049)", () => {
   });
 });
 
-describe("RoutePage OSRM unavailable (T060)", () => {
+describe("RoutePage OSRM unavailable", () => {
   it("RoutePage checks OSRM availability", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -105,14 +105,14 @@ describe("RoutePage OSRM unavailable (T060)", () => {
       "utf-8"
     );
 
-    // T060: OSRM flag
+    // OSRM flag
     expect(source).toContain("osrmAvailable");
     expect(source).toContain("/health");
     expect(source).toContain("Route suggestions unavailable");
   });
 });
 
-describe("SyncStatus complete state (T038)", () => {
+describe("SyncStatus complete state", () => {
   it("SyncStatus handles complete state with success toast", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -127,7 +127,7 @@ describe("SyncStatus complete state (T038)", () => {
   });
 });
 
-describe("App ErrorBoundary (T050)", () => {
+describe("App ErrorBoundary", () => {
   it("App.tsx wraps content in ErrorBoundary", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -142,10 +142,10 @@ describe("App ErrorBoundary (T050)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Route Enhancement Feature Tests (FR-001, FR-002, FR-003)
+// Route Enhancement Feature Tests
 // ---------------------------------------------------------------------------
 
-describe("RouteForm variation slider (FR-001)", () => {
+describe("RouteForm variation slider", () => {
   it("has a range input for route variety", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -175,7 +175,7 @@ describe("RouteForm variation slider (FR-001)", () => {
   });
 });
 
-describe("RouteForm street preferences (FR-002)", () => {
+describe("RouteForm street preferences", () => {
   it("has preference sliders for each street category", async () => {
     const fs = await import("fs");
     const path = await import("path");
@@ -231,7 +231,7 @@ describe("RouteForm street preferences (FR-002)", () => {
   });
 });
 
-describe("RouteForm saved start points (FR-003)", () => {
+describe("RouteForm saved start points", () => {
   it("accepts saved start points as props", async () => {
     const fs = await import("fs");
     const path = await import("path");

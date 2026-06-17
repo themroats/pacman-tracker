@@ -1,5 +1,5 @@
 /**
- * T089 — Frontend coverage dashboard component tests.
+ * Frontend coverage dashboard component tests.
  *
  * Tests for:
  * - StreetCoverageLayer: color-coded streets

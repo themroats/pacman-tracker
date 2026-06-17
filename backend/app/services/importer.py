@@ -20,13 +20,13 @@ from app.services.strava import RateLimitError, StravaOAuthService, TokenRevoked
 
 logger = logging.getLogger(__name__)
 
-# T076: Exponential backoff settings
+# Exponential backoff settings
 MAX_RETRIES = 5
 BASE_BACKOFF_SECONDS = 15
 
 
 async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
-    """Execute an async callable with exponential backoff on rate-limit errors (T076).
+    """Execute an async callable with exponential backoff on rate-limit errors.
 
     Args:
         coro_factory: A zero-arg callable that returns a new coroutine each call.
@@ -293,7 +293,7 @@ class ActivityImporter:
 
 
 # ---------------------------------------------------------------------------
-# T078: GPS quality detection
+# GPS quality detection
 # ---------------------------------------------------------------------------
 
 # Max distance (meters) between consecutive GPS points before flagging as a gap
@@ -317,7 +317,7 @@ def _haversine_approx(lat1: float, lng1: float, lat2: float, lng2: float) -> flo
 
 
 def _check_gps_quality(activity: Activity, latlng_data: list[list[float]]) -> None:
-    """Flag activity if GPS data has significant gaps (T078).
+    """Flag activity if GPS data has significant gaps.
 
     Sets activity.import_status to 'gps_quality_warning' if too many gaps detected.
     Does NOT prevent further processing — it's just a flag for user review.

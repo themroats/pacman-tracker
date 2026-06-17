@@ -1,5 +1,5 @@
 /**
- * T073 — NavBar
+ * NavBar
  *
  * Navigation header with links to all pages.
  */

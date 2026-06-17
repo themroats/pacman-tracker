@@ -1,5 +1,5 @@
 /**
- * T077 — ErrorBoundary
+ * ErrorBoundary
  *
  * React error boundary that catches render errors and shows a fallback UI.
  */

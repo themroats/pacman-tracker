@@ -1,4 +1,4 @@
-"""RouteSuggestion and RouteSuggestionSegment ORM models (T054)."""
+"""RouteSuggestion and RouteSuggestionSegment ORM models."""
 
 import datetime
 

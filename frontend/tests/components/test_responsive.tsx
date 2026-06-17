@@ -2,9 +2,9 @@
  * Responsive behavior tests — validates mobile layout adaptations.
  *
  * Tests are added incrementally per priority tier:
- * - P1: NavBar hamburger menu, MapPage overlay positioning
- * - P2: CoveragePage/RoutePage stacked layouts (added in T011)
- * - P3: ProgressPage/HomePage mobile layouts (added in T018)
+ * - NavBar hamburger menu, MapPage overlay positioning
+ * - CoveragePage/RoutePage stacked layouts
+ * - ProgressPage/HomePage mobile layouts
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -55,7 +55,7 @@ function mockDesktop() {
 }
 
 // ---------------------------------------------------------------------------
-// P1: NavBar responsive behavior
+// NavBar responsive behavior
 // ---------------------------------------------------------------------------
 
 describe("NavBar — mobile responsive", () => {
@@ -130,7 +130,7 @@ describe("NavBar — mobile responsive", () => {
 });
 
 // ---------------------------------------------------------------------------
-// P2: CoveragePage + RoutePage stacked layouts
+// CoveragePage + RoutePage stacked layouts
 // ---------------------------------------------------------------------------
 
 describe("RoutePage — mobile responsive", () => {
@@ -171,7 +171,7 @@ describe("RoutePage — mobile responsive", () => {
 });
 
 // ---------------------------------------------------------------------------
-// P3: ProgressPage + HomePage mobile layouts
+// ProgressPage + HomePage mobile layouts
 // ---------------------------------------------------------------------------
 
 describe("HomePage — mobile responsive", () => {
