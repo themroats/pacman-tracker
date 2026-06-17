@@ -109,7 +109,7 @@ def test_env():
 
 
 class TestUserIsolation:
-    """100% of data endpoints enforce user authentication and return only the authenticated user's data."""
+    """Data endpoints (activities, activities/geojson, progress/stats) enforce user authentication and return only the authenticated user's data."""
 
     def test_activities_returns_only_own_data_user_a(self, test_env):
         client = TestClient(test_env["app"])

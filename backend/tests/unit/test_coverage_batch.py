@@ -173,7 +173,7 @@ def test_env():
 
 
 class TestBatchedCoverageQuery:
-    """Coverage page loads neighborhood data using at most 2 DB queries."""
+    """Coverage page loads neighborhood data with a bounded query count (no N+1)."""
 
     def test_city_coverage_returns_all_neighborhoods(self, test_env):
         """Endpoint returns coverage for all neighborhoods in a single request."""
