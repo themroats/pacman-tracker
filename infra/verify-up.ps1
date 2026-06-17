@@ -27,7 +27,7 @@ param(
 $RepoRoot = Get-RepoRoot
 $DbUrl = Get-VerificationDbUrl
 
-Assert-Command python "Activate the project virtualenv first."
+Assert-BackendPython
 if (-not ((Test-HostCommand psql) -or (Test-DbContainerRunning (Get-DbContainer)))) {
     throw "Need either host 'psql' on PATH or the running DB container " +
           "'$(Get-DbContainer)'. Start it with: docker compose up -d db"
@@ -51,16 +51,22 @@ if (-not (Test-VerificationDbSeeded -Url $DbUrl)) {
 }
 
 # 3. Start the backend with the bypass enabled, pointed at the verification DB.
-Write-Step "Starting backend (DEV_AUTH_BYPASS=1) on port $Port"
-$backendDir = Join-Path $RepoRoot "backend"
-$backend = Start-Process -PassThru -WorkingDirectory $backendDir -FilePath (Get-BackendPython) `
-    -ArgumentList @("-m", "uvicorn", "app.main:app", "--reload", "--port", "$Port") `
-    -Environment @{ DATABASE_URL = $DbUrl; DEV_AUTH_BYPASS = "1" }
-Write-Host "  backend PID $($backend.Id)" -ForegroundColor DarkGray
+# Reuse an already-warm backend if the port is in use (keeps the loop idempotent).
+if (Test-PortInUse $Port) {
+    Write-Host "Backend port $Port already in use; reusing the warm backend." -ForegroundColor DarkGray
+    $backend = $null
+} else {
+    Write-Step "Starting backend (DEV_AUTH_BYPASS=1) on port $Port"
+    $backend = Start-BackendProcess -RepoRoot $RepoRoot -Url $DbUrl -Port $Port -Reload
+}
 
-# 4. Start the frontend dev server.
+# 4. Start the frontend dev server (reuse a warm one if the port is taken).
 if (-not $NoFrontend) {
-    $frontend = Start-Frontend -RepoRoot $RepoRoot -FrontendPort $FrontendPort
+    if (Test-PortInUse $FrontendPort) {
+        Write-Host "Frontend port $FrontendPort already in use; reusing the warm dev server." -ForegroundColor DarkGray
+    } else {
+        $frontend = Start-Frontend -RepoRoot $RepoRoot -FrontendPort $FrontendPort
+    }
 }
 
 Write-Host "`nVerification stack is warm:" -ForegroundColor Green

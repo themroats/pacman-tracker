@@ -7,7 +7,8 @@ frozen street snapshot:
 * truncates run-accumulated tables (route suggestions, plans, goals),
 * clears + reseeds the demo user's sample activities and coverage,
 * preserves the snapshot tables (cities / neighborhoods / street_segments),
-* clears process-local caches that would otherwise leak between runs.
+* clears in-process routing/sync caches in the invoking CLI process (NOT the
+  already-running backend; see the note on ``reset_runtime_caches``).
 
 Guarded so it can ONLY target the verification database.
 

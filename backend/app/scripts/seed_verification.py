@@ -41,6 +41,7 @@ SAMPLE_STREET_COUNT = 25
 SAMPLE_ACTIVITY_COUNT = 3
 
 EXIT_SNAPSHOT_MISSING = 6
+EXIT_UNEXPECTED_USERS = 8
 
 
 def ensure_demo_user(session: Session) -> User:
@@ -48,35 +49,41 @@ def ensure_demo_user(session: Session) -> User:
 
     DEV_AUTH_BYPASS authenticates every request as the first user, so the harness
     is only deterministic when the synthetic demo user is the sole user in the
-    verification DB. Any other users are removed (along with their dependent rows)
-    to guarantee that invariant.
+    verification DB. If any non-demo users exist, fail fast with an actionable
+    message instead of attempting a partial cleanup — other user-linked tables
+    (routes, plans, start points) could otherwise violate FK constraints or leave
+    inconsistent data behind.
     """
-    user = session.scalar(select(User).where(User.strava_athlete_id == DEMO_STRAVA_ATHLETE_ID))
-    if user is None:
-        city = session.scalar(select(City).order_by(City.id))
-        encrypted = encrypt_token(DEMO_TOKEN_PLACEHOLDER)
-        user = User(
-            strava_athlete_id=DEMO_STRAVA_ATHLETE_ID,
-            display_name=DEMO_DISPLAY_NAME,
-            access_token_encrypted=encrypted,
-            refresh_token_encrypted=encrypted,
-            token_expires_at=datetime.datetime(2099, 1, 1),
-            strava_scope="read,activity:read",
-            home_city_id=city.id if city else None,
-            sync_status="complete",
-            last_sync_at=datetime.datetime.now(datetime.UTC),
+    other_users = (
+        session.query(User).filter(User.strava_athlete_id != DEMO_STRAVA_ATHLETE_ID).count()
+    )
+    if other_users:
+        print(
+            f"Verification DB contains {other_users} unexpected non-demo user(s). "
+            "DEV_AUTH_BYPASS authenticates as the first user, so seeding would not be "
+            "deterministic. Rebuild the isolated DB with infra/verify-clean.ps1, then re-run.",
+            file=sys.stderr,
         )
-        session.add(user)
-        session.flush()
+        sys.exit(EXIT_UNEXPECTED_USERS)
 
-    # Determinism: the bypass picks the first user, so the demo user must be the
-    # only one. Drop any others plus their dependent run data.
-    others = session.scalars(select(User).where(User.id != user.id)).all()
-    for other in others:
-        session.query(CoverageSnapshot).filter_by(user_id=other.id).delete()
-        session.query(UserStreetCoverage).filter_by(user_id=other.id).delete()
-        session.query(Activity).filter_by(user_id=other.id).delete()
-        session.delete(other)
+    user = session.scalar(select(User).where(User.strava_athlete_id == DEMO_STRAVA_ATHLETE_ID))
+    if user is not None:
+        return user
+
+    city = session.scalar(select(City).order_by(City.id))
+    encrypted = encrypt_token(DEMO_TOKEN_PLACEHOLDER)
+    user = User(
+        strava_athlete_id=DEMO_STRAVA_ATHLETE_ID,
+        display_name=DEMO_DISPLAY_NAME,
+        access_token_encrypted=encrypted,
+        refresh_token_encrypted=encrypted,
+        token_expires_at=datetime.datetime(2099, 1, 1),
+        strava_scope="read,activity:read",
+        home_city_id=city.id if city else None,
+        sync_status="complete",
+        last_sync_at=datetime.datetime.now(datetime.UTC),
+    )
+    session.add(user)
     session.flush()
     return user
 

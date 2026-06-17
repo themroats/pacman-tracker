@@ -3,10 +3,11 @@
     Clean full bring-up of the verification stack (feature 008) for a final pre-push check.
 
 .DESCRIPTION
-    Rebuilds the isolated verification database from scratch — drop, recreate,
-    restore the frozen snapshot, and reseed — then starts the backend (exercising
-    the normal startup/migration/validation path) and the frontend fresh. Use this
-    before pushing to catch startup/schema regressions that the warm loop misses.
+    Stops any warm verification services, then rebuilds the isolated verification
+    database from scratch — drop, recreate, restore the frozen snapshot, and reseed
+    — then starts the backend (exercising the normal startup/migration/validation
+    path) and the frontend fresh. Use this before pushing to catch startup/schema
+    regressions that the warm loop misses.
 
     LOCAL-ONLY. The backend runs with DEV_AUTH_BYPASS=1 (emits a CRITICAL log).
 #>
@@ -22,12 +23,17 @@ param(
 $RepoRoot = Get-RepoRoot
 $DbUrl = Get-VerificationDbUrl
 
-Assert-Command python "Activate the project virtualenv first."
+Assert-BackendPython
 if (-not ((Test-HostCommand psql) -or (Test-DbContainerRunning (Get-DbContainer)))) {
     throw "Need either host 'psql' on PATH or the running DB container " +
           "'$(Get-DbContainer)'. Start it with: docker compose up -d db"
 }
 if (-not $NoFrontend) { Assert-Command npm "Install Node.js 20+." }
+
+# 0. Stop any warm services from a previous verify-up so this clean run owns the ports.
+Write-Step "Stopping any warm verification services"
+Stop-ProcessOnPort $Port
+if (-not $NoFrontend) { Stop-ProcessOnPort $FrontendPort }
 
 # 1. Rebuild the verification database from scratch.
 if (Test-VerificationDbExists -Url $DbUrl) {
@@ -42,11 +48,7 @@ Invoke-Seed -RepoRoot $RepoRoot -Url $DbUrl
 
 # 3. Start the backend fresh (normal startup path: migrations + PostGIS validation).
 Write-Step "Starting backend fresh (DEV_AUTH_BYPASS=1) on port $Port"
-$backendDir = Join-Path $RepoRoot "backend"
-$backend = Start-Process -PassThru -WorkingDirectory $backendDir -FilePath (Get-BackendPython) `
-    -ArgumentList @("-m", "uvicorn", "app.main:app", "--port", "$Port") `
-    -Environment @{ DATABASE_URL = $DbUrl; DEV_AUTH_BYPASS = "1" }
-Write-Host "  backend PID $($backend.Id)" -ForegroundColor DarkGray
+$backend = Start-BackendProcess -RepoRoot $RepoRoot -Url $DbUrl -Port $Port
 
 # 4. Start the frontend fresh.
 if (-not $NoFrontend) {

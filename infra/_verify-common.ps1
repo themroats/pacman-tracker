@@ -29,6 +29,17 @@ function Assert-Command {
     }
 }
 
+# Validate that a usable backend Python interpreter exists. Prefers the repo
+# virtualenv, so — unlike `Assert-Command python` — this does not require a system
+# `python` on PATH when the venv interpreter is present.
+function Assert-BackendPython {
+    $venvPython = Join-Path (Get-RepoRoot) ".venv\Scripts\python.exe"
+    if (Test-Path $venvPython) { return }
+    if (Get-Command python -ErrorAction SilentlyContinue) { return }
+    throw "No backend Python found. Create the project virtualenv " +
+          "(python -m venv .venv) or ensure 'python' is on PATH."
+}
+
 function Test-HostCommand {
     param([string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -247,4 +258,64 @@ function Start-Frontend {
     }
     Write-Host "  frontend PID $($frontend.Id)" -ForegroundColor DarkGray
     return $frontend
+}
+
+# True if a local TCP port is already being listened on. Used to keep the warm
+# launcher idempotent (don't spawn a second backend that can't bind the port).
+function Test-PortInUse {
+    param([int]$Port)
+    try {
+        return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+    } catch {
+        return $false
+    }
+}
+
+# Stop whatever process is listening on a local port. Used by verify-clean to
+# actually stop warm services before a clean bring-up.
+function Stop-ProcessOnPort {
+    param([int]$Port)
+    try {
+        $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    } catch {
+        return
+    }
+    if (-not $conns) { return }
+    foreach ($procId in ($conns | Select-Object -ExpandProperty OwningProcess -Unique)) {
+        try {
+            Stop-Process -Id $procId -Force -ErrorAction Stop
+            Write-Host "  stopped process $procId on port $Port" -ForegroundColor DarkGray
+        } catch { }
+    }
+}
+
+# Start the backend (uvicorn) against the verification DB with the bypass on.
+# Start-Process -Environment is PowerShell 7+ only, so set the env vars on the
+# current process (inherited by the child at spawn) and restore them afterwards
+# to stay compatible with Windows PowerShell 5.1.
+function Start-BackendProcess {
+    param(
+        [string]$RepoRoot,
+        [string]$Url,
+        [int]$Port,
+        [switch]$Reload
+    )
+    $backendDir = Join-Path $RepoRoot "backend"
+    $procArgs = @("-m", "uvicorn", "app.main:app")
+    if ($Reload) { $procArgs += "--reload" }
+    $procArgs += @("--port", "$Port")
+
+    $prevDb = $env:DATABASE_URL
+    $prevBypass = $env:DEV_AUTH_BYPASS
+    $env:DATABASE_URL = $Url
+    $env:DEV_AUTH_BYPASS = "1"
+    try {
+        $backend = Start-Process -PassThru -WorkingDirectory $backendDir `
+            -FilePath (Get-BackendPython) -ArgumentList $procArgs
+    } finally {
+        $env:DATABASE_URL = $prevDb
+        $env:DEV_AUTH_BYPASS = $prevBypass
+    }
+    Write-Host "  backend PID $($backend.Id)" -ForegroundColor DarkGray
+    return $backend
 }

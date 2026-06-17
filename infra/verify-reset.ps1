@@ -4,9 +4,13 @@
 
 .DESCRIPTION
     Restores the demo dataset to its known baseline WITHOUT re-restoring the frozen
-    street snapshot, and clears process-local caches that would otherwise leak
-    between runs. Use this between back-to-back verification runs while the stack
+    street snapshot. Use this between back-to-back verification runs while the stack
     stays warm (started by infra\verify-up.ps1).
+
+    NOTE: This resets database state only. The reset CLI runs in a separate process
+    and cannot clear the already-running backend's in-memory caches (e.g. the OSRM
+    availability flag); those clear via their own TTL/force-check or on a restart
+    through infra\verify-clean.ps1.
 #>
 [CmdletBinding()]
 param()
@@ -16,7 +20,7 @@ param()
 $RepoRoot = Get-RepoRoot
 $DbUrl = Get-VerificationDbUrl
 
-Assert-Command python "Activate the project virtualenv first."
+Assert-BackendPython
 
 if (-not (Test-VerificationDbExists -Url $DbUrl)) {
     throw "Verification database does not exist. Run infra\verify-up.ps1 first."

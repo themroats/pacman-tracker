@@ -6,6 +6,9 @@ offline (no OSM downloads, no Strava). The guarded CLI entrypoint is covered
 separately in test_verify_guard.py.
 """
 
+import datetime
+
+import pytest
 from geoalchemy2.shape import from_shape
 from sqlalchemy import select
 
@@ -15,6 +18,7 @@ from app.models.coverage import CoverageSnapshot, UserStreetCoverage
 from app.models.street import StreetSegment
 from app.models.user import User
 from app.scripts.seed_verification import (
+    EXIT_UNEXPECTED_USERS,
     SAMPLE_ACTIVITY_COUNT,
     SAMPLE_STREET_COUNT,
     clear_sample_data,
@@ -110,6 +114,25 @@ class TestSeedSampleData:
         second = ensure_demo_user(db_session)
         assert first.id == second.id
         assert len(list(db_session.scalars(select(User)))) == 1
+
+    def test_ensure_demo_user_fails_fast_on_unexpected_users(self, db_session):
+        """A non-demo user breaks DEV_AUTH_BYPASS determinism — refuse to seed."""
+        _build_snapshot(db_session)
+        db_session.add(
+            User(
+                strava_athlete_id=123456,
+                display_name="Someone Else",
+                access_token_encrypted="x",
+                refresh_token_encrypted="x",
+                token_expires_at=datetime.datetime(2099, 1, 1),
+                strava_scope="read",
+            )
+        )
+        db_session.flush()
+
+        with pytest.raises(SystemExit) as exc:
+            ensure_demo_user(db_session)
+        assert exc.value.code == EXIT_UNEXPECTED_USERS
 
     def test_repeated_seed_produces_identical_baseline(self, db_session):
         """T023 — re-seeding yields the same baseline (deterministic, SC-003)."""
