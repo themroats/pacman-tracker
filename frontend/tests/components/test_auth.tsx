@@ -28,7 +28,7 @@ describe("HomePage — Connect with Strava button", () => {
 
 describe("AuthCallbackPage — OAuth callback processing", () => {
   it("renders callback page without crashing", async () => {
-    // Will be implemented
+    // TODO: Assert callback success and error states once AuthCallbackPage behavior is finalized.
     try {
       const { default: AuthCallbackPage } = await import("@/pages/AuthCallbackPage");
 

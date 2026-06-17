@@ -3,7 +3,7 @@ Unit tests for input validation and database constraints.
 
 Covers:
 - FK pragma is ON
-- T004b: SpatiaLite fail-fast
+- SpatiaLite fail-fast
 - distance_meters le=50000
 - StartPoint coordinate validation
 - BBox validation returns 400

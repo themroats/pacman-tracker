@@ -9,7 +9,7 @@ Covers:
 - cities.py boundary serialization logging
 - webhook handler logs and re-raises on failure
 - webhook API catches TokenRevokedError, returns 500 on other errors
-- T026b: Automated grep audit for remaining silent catches
+- Automated grep audit for remaining silent catches
 """
 
 import glob
@@ -20,7 +20,7 @@ import pytest
 
 
 class TestSilentCatchAudit:
-    """T026b: Verify zero remaining silent except:pass in backend and empty .catch in frontend."""
+    """Verify zero remaining silent except:pass in backend and empty .catch in frontend."""
 
     def test_no_silent_except_pass_in_backend(self):
         """Grep backend/app/ for 'except.*pass' — should find zero matches."""
