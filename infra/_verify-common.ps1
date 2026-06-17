@@ -183,6 +183,13 @@ function Restore-Snapshot {
     $remote = "/tmp/verify-seattle.dump"
     & docker cp $snapshot "${container}:${remote}"
     if ($LASTEXITCODE -ne 0) { throw "docker cp of snapshot into '$container' failed." }
+    # Idempotency (mirrors the Python restore path): clear existing snapshot rows
+    # first so a re-run against a non-empty DB does not fail with duplicate keys.
+    # CASCADE also clears dependent demo rows, which the seed step recreates.
+    & docker exec -e "PGPASSWORD=$($p.Password)" $container `
+        psql -U $p.User -d $p.Database `
+        -c "TRUNCATE cities, neighborhoods, street_segments RESTART IDENTITY CASCADE"
+    if ($LASTEXITCODE -ne 0) { throw "Failed to clear snapshot tables before restore." }
     & docker exec -e "PGPASSWORD=$($p.Password)" $container `
         pg_restore --data-only --no-owner --no-privileges -U $p.User -d $p.Database $remote
     if ($LASTEXITCODE -ne 0) { throw "Snapshot restore failed (exit $LASTEXITCODE)." }
