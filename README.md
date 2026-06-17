@@ -185,6 +185,23 @@ npm test                  # Run Vitest in watch mode
 npm run test:coverage     # With coverage
 ```
 
+## Local Verification Harness
+
+For verifying fixes in a real browser without Strava OAuth, the repo ships a
+local browser-based verification harness (Playwright + a dev auth bypass +
+seeded demo data, all against an isolated `pacman_verify` database).
+
+```powershell
+infra\verify-up.ps1                       # warm stack: isolated DB + backend + frontend
+cd frontend; npx playwright test tests/e2e  # drive the browser
+infra\verify-reset.ps1                     # fast data-only reset between runs
+```
+
+The harness is **local-only** — the backend runs with `DEV_AUTH_BYPASS=1`
+(logs a CRITICAL warning) and never touches dev/prod data. See
+[specs/008-browser-verification-harness/quickstart.md](specs/008-browser-verification-harness/quickstart.md)
+for the full workflow.
+
 ## Supported Cities
 
 The street data loader includes five launch cities:
