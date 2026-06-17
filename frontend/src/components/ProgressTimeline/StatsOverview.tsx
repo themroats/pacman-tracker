@@ -1,5 +1,5 @@
 /**
- * T071 — StatsOverview
+ * StatsOverview
  *
  * Displays overall user statistics: total activities, distance, unique streets,
  * and per-city breakdown.

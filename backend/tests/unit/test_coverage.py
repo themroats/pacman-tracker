@@ -1,5 +1,5 @@
 """
-T087 — GPS-to-street matching unit tests.
+GPS-to-street matching unit tests.
 
 Tests:
 - Buffer GPS trace by 15 m and intersect with street segments
@@ -20,7 +20,7 @@ from shapely.geometry import LineString
 # ---------------------------------------------------------------------------
 
 # We import the service *functions* directly; they accept Shapely geometries.
-# The module will be created in backend/app/services/coverage.py (T044).
+# The module will be created in backend/app/services/coverage.py.
 from app.services.coverage import (
     compute_coverage_ratio,
     classify_activity_on_street,

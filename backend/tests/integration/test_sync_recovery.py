@@ -1,5 +1,5 @@
 """
-Integration tests for sync status recovery (SC-003).
+Integration tests for sync status recovery.
 
 Verifies:
 - Stale "syncing" status is recovered to "error" on status poll when no active job
@@ -67,7 +67,7 @@ def _make_user(session, **overrides):
 
 
 class TestStaleRecoveryOnPoll:
-    """SC-003: Sync status never remains stuck in 'syncing' for more than 5 minutes after a failure."""
+    """Sync status never remains stuck in 'syncing' for more than 5 minutes after a failure."""
 
     def test_syncing_with_no_active_job_recovers_to_error(self, db_session):
         """If user is 'syncing' but no in-process job exists, recover to 'error'."""

@@ -1,5 +1,5 @@
 /**
- * T048 — StreetCoverageLayer
+ * StreetCoverageLayer
  *
  * Renders street segments as colored polylines on the Leaflet map.
  * - Green (#22c55e) = traveled

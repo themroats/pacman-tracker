@@ -246,10 +246,10 @@ class StravaOAuthService:
         refresh_token: str,
         expires_at: datetime.datetime,
     ) -> dict[str, Any] | None:
-        """Check token expiry and refresh if needed (T075).
+        """Check token expiry and refresh if needed.
 
         Returns a dict with new token data if refreshed, or None if still valid.
-        Raises TokenRevokedError if refresh is rejected (T097).
+        Raises TokenRevokedError if refresh is rejected.
         """
         now = datetime.datetime.now(datetime.UTC)
         # Add 60s buffer to avoid race conditions

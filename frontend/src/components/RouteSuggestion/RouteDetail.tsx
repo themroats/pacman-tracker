@@ -1,5 +1,5 @@
 /**
- * T062 — RouteDetail
+ * RouteDetail
  *
  * Displays route statistics and segment breakdown.
  */

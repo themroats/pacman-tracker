@@ -1,5 +1,5 @@
 """
-Cities API router (T047).
+Cities API router.
 
 Endpoints:
 - GET /cities                                            → list all supported cities

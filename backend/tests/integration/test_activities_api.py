@@ -23,7 +23,7 @@ from tests.integration.conftest import _make_test_session, _get_test_app
 
 
 class TestActivitiesListEndpoint:
-    """T085: Test GET /activities with filters."""
+    """Test GET /activities with filters."""
 
     def test_list_activities_returns_paginated(self):
         """GET /activities should return paginated activity list."""
@@ -63,7 +63,7 @@ class TestActivitiesListEndpoint:
 
 
 class TestActivityDetailEndpoint:
-    """T085: Test GET /activities/{id}."""
+    """Test GET /activities/{id}."""
 
     def test_get_activity_returns_detail(self):
         """GET /activities/42 should return activity with GPS trace."""
@@ -88,7 +88,7 @@ class TestActivityDetailEndpoint:
 
 
 class TestActivitiesGeoJSONEndpoint:
-    """T085: Test GET /activities/geojson."""
+    """Test GET /activities/geojson."""
 
     def test_geojson_returns_feature_collection(self):
         """GET /activities/geojson should return a GeoJSON FeatureCollection."""

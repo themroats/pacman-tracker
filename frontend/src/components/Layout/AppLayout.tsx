@@ -1,5 +1,5 @@
 /**
- * T074 — AppLayout
+ * AppLayout
  *
  * Responsive layout shell with NavBar. Wraps page content.
  */

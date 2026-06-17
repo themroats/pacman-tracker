@@ -1,5 +1,5 @@
 """
-Progress service (T066) — daily coverage snapshots and milestone detection.
+Progress service — daily coverage snapshots and milestone detection.
 
 Functions:
 - detect_milestones(old_pct, new_pct) → list of crossed milestone labels

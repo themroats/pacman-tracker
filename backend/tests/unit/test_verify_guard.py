@@ -1,11 +1,11 @@
 """
-Guard tests for the verification harness scripts (feature 008, T028).
+Guard tests for the verification harness scripts.
 
 Verifies two safety properties:
 1. The seed/reset/snapshot scripts refuse to run against a non-verification
    database name (exit code 4).
 2. The repo default keeps DEV_AUTH_BYPASS off, so the bypass is never on by
-   default (FR-004a, FR-010, SC-006).
+   default.
 """
 
 import pytest

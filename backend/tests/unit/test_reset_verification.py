@@ -1,5 +1,5 @@
 """
-Unit tests for the verification reset script (feature 008, T018).
+Unit tests for the verification reset script.
 
 Verifies the fast data-only reset restores the demo baseline, truncates
 run-accumulated data, preserves the snapshot tables, and keeps exactly one user.

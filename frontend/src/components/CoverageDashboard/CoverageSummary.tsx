@@ -1,5 +1,5 @@
 /**
- * T050 — CoverageSummary
+ * CoverageSummary
  *
  * Displays city-wide coverage percentage and per-neighborhood breakdown table.
  */

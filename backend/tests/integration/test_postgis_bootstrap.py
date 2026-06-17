@@ -1,5 +1,5 @@
 """
-Integration tests for PostGIS database operations (T016-T020).
+Integration tests for PostGIS database operations.
 
 Verifies that city bootstrap patterns, spatial queries, neighborhood
 assignment, concurrent access, and end-to-end API queries work correctly
@@ -25,7 +25,7 @@ from app.models.user import User
 
 
 class TestPostGISCityInserts:
-    """T016: Verify city and street inserts with WKT geometries on PostGIS."""
+    """Verify city and street inserts with WKT geometries on PostGIS."""
 
     def test_city_boundary_insert_and_spatial_query(self, db_session):
         poly = Polygon([
@@ -97,7 +97,7 @@ class TestPostGISCityInserts:
 
 
 class TestPostGISNeighborhoodAssignment:
-    """T017: Verify neighborhood street assignment via ST_Within + ST_Centroid."""
+    """Verify neighborhood street assignment via ST_Within + ST_Centroid."""
 
     def test_street_assignment_with_postgis_spatial_ops(self, db_session):
         poly = Polygon([(-122.40, 47.55), (-122.25, 47.55), (-122.25, 47.65),
@@ -146,7 +146,7 @@ class TestPostGISNeighborhoodAssignment:
 
 
 class TestPostGISConcurrency:
-    """T018: Verify concurrent read/write access without lock contention."""
+    """Verify concurrent read/write access without lock contention."""
 
     def test_concurrent_writer_and_readers(self, postgis_engine):
         """1 writer + 5 readers should complete without errors on PostGIS."""
@@ -320,7 +320,7 @@ class TestBootstrapScriptsUseFromShape:
 
 
 class TestPostGISEndToEnd:
-    """T020: End-to-end app API queries against PostGIS."""
+    """End-to-end app API queries against PostGIS."""
 
     def test_cities_endpoint_on_empty_db(self):
         from fastapi.testclient import TestClient

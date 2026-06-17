@@ -1,5 +1,5 @@
 /**
- * T094 — Frontend progress timeline component tests.
+ * Frontend progress timeline component tests.
  *
  * Tests: TimelineChart, MilestoneList, StatsOverview rendering and data display.
  */

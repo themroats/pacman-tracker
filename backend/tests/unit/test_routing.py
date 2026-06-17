@@ -1,5 +1,5 @@
 """
-T090 — OSRM client unit tests with stubbed HTTP responses.
+OSRM client unit tests with stubbed HTTP responses.
 
 Tests:
 - /nearest endpoint parsing

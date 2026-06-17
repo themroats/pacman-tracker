@@ -1,5 +1,5 @@
 /**
- * Integration tests for API error → toast notification pipeline (SC-001).
+ * Integration tests for API error → toast notification pipeline.
  *
  * Verifies:
  * - ApiClientError from a failed request triggers the global onError handler

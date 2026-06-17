@@ -27,7 +27,7 @@ def _init_postgis(engine) -> None:
 
 
 def _validate_postgis(engine) -> None:
-    """Verify PostgreSQL connection and PostGIS extension at startup (FR-010)."""
+    """Verify PostgreSQL connection and PostGIS extension at startup."""
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT PostGIS_Version()"))

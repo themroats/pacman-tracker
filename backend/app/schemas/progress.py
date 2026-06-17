@@ -1,4 +1,4 @@
-"""Pydantic schemas for progress timeline, milestones, and overall stats (T065)."""
+"""Pydantic schemas for progress timeline, milestones, and overall stats."""
 
 from pydantic import BaseModel
 

@@ -1,5 +1,5 @@
 """
-Coverage API router (T046).
+Coverage API router.
 
 Endpoints:
 - GET /coverage/city/{city_id}                     → city summary + neighborhood breakdown

@@ -1,5 +1,5 @@
 /**
- * T086: Frontend auth flow component tests.
+ * Frontend auth flow component tests.
  *
  * Tests: connect button, callback redirect, logout
  */
@@ -28,7 +28,7 @@ describe("HomePage — Connect with Strava button", () => {
 
 describe("AuthCallbackPage — OAuth callback processing", () => {
   it("renders callback page without crashing", async () => {
-    // Will be implemented in T034
+    // Will be implemented
     try {
       const { default: AuthCallbackPage } = await import("@/pages/AuthCallbackPage");
 

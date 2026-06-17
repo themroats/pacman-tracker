@@ -1,5 +1,5 @@
 """
-Routing service — OSRM client + route suggestion algorithm (T056-T058).
+Routing service — OSRM client + route suggestion algorithm.
 
 - OSRMClient: HTTP client for /nearest, /trip, /route
 - RouteSuggestionEngine: selects waypoints from untraveled streets,
@@ -61,7 +61,7 @@ async def check_osrm_available(force: bool = False) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# OSRM HTTP Client (T056)
+# OSRM HTTP Client
 # ---------------------------------------------------------------------------
 
 
@@ -150,7 +150,7 @@ class OSRMClient:
 
 
 # ---------------------------------------------------------------------------
-# Route Suggestion Engine (T057 / T058)
+# Route Suggestion Engine
 # ---------------------------------------------------------------------------
 
 
@@ -162,7 +162,7 @@ class RouteSuggestionEngine:
 
     # ---- Waypoint selection ----
 
-    # Highway type → user-friendly category mapping (FR-002)
+    # Highway type → user-friendly category mapping
     HIGHWAY_CATEGORIES: dict[str, str] = {
         "residential": "residential",
         "living_street": "residential",
@@ -225,7 +225,7 @@ class RouteSuggestionEngine:
         if not untraveled:
             return []
 
-        # Apply preference filtering (FR-002)
+        # Apply preference filtering
         pref = preferences or RouteSuggestionEngine.DEFAULT_PREFERENCES
         cat_map = RouteSuggestionEngine.HIGHWAY_CATEGORIES
 
@@ -254,7 +254,7 @@ class RouteSuggestionEngine:
             )
             selected = filtered[:k]
         else:
-            # Weighted random sampling (FR-001)
+            # Weighted random sampling
             # weight = length^(1 - variation) × preference_weight
             weights = [
                 (s["length_meters"] ** (1 - variation)) * _pref_weight(s)

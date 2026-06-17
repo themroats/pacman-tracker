@@ -1,5 +1,5 @@
 """
-Frozen Seattle snapshot tooling for the verification harness (feature 008).
+Frozen Seattle snapshot tooling for the verification harness.
 
 Provides two subcommands:
 

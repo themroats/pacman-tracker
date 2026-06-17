@@ -1,5 +1,5 @@
 /**
- * T051 — AreaSelector
+ * AreaSelector
  *
  * City / neighborhood selector component — top-level dropdown controls.
  */

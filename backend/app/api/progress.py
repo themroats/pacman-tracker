@@ -1,4 +1,4 @@
-"""Progress API router (T068) — timeline, milestones, and overall stats."""
+"""Progress API router — timeline, milestones, and overall stats."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session

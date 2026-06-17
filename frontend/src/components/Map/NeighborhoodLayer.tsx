@@ -1,5 +1,5 @@
 /**
- * T049 — NeighborhoodLayer
+ * NeighborhoodLayer
  *
  * Renders neighborhood boundary polygons on the Leaflet map.
  * Supports click-to-select behaviour.

@@ -2,12 +2,12 @@
 Unit tests for input validation and database constraints.
 
 Covers:
-- T004: FK pragma is ON
+- FK pragma is ON
 - T004b: SpatiaLite fail-fast
-- T051: distance_meters le=50000
-- T052: StartPoint coordinate validation
-- T053: BBox validation returns 400
-- T054: Path param gt=0 validation
+- distance_meters le=50000
+- StartPoint coordinate validation
+- BBox validation returns 400
+- Path param gt=0 validation
 """
 
 import pytest
@@ -17,7 +17,7 @@ from app.schemas.route import RouteSuggestRequest, StartPoint
 
 
 class TestStartPointValidation:
-    """T052: Typed StartPoint model with coordinate range validation."""
+    """Typed StartPoint model with coordinate range validation."""
 
     def test_valid_coordinates(self):
         sp = StartPoint(lng=-122.33, lat=47.60)
@@ -48,7 +48,7 @@ class TestStartPointValidation:
 
 
 class TestRouteSuggestRequestValidation:
-    """T051+T052: Route request validation."""
+    """Route request validation."""
 
     def test_valid_request(self):
         req = RouteSuggestRequest(
@@ -132,7 +132,7 @@ class TestDatabasePostGIS:
 
 
 class TestImportStatusValues:
-    """T002: VALID_IMPORT_STATUSES includes error and gps_quality_warning."""
+    """VALID_IMPORT_STATUSES includes error and gps_quality_warning."""
 
     def test_error_in_valid_statuses(self):
         from app.models.activity import Activity
@@ -152,7 +152,7 @@ class TestImportStatusValues:
 
 
 class TestSyncStatusValues:
-    """T003: VALID_SYNC_STATUSES includes complete."""
+    """VALID_SYNC_STATUSES includes complete."""
 
     def test_complete_in_valid_statuses(self):
         from app.models.user import User

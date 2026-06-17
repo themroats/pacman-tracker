@@ -2,9 +2,9 @@
 Tests for OSRM health check and graceful degradation.
 
 Covers:
-- T055: check_osrm_available() function
-- T056: /health endpoint returns osrm_available flag
-- T057: Route suggest endpoint guards on OSRM availability
+- check_osrm_available() function
+- /health endpoint returns osrm_available flag
+- Route suggest endpoint guards on OSRM availability
 """
 
 import pytest
@@ -14,7 +14,7 @@ from app.services.routing import check_osrm_available, _osrm_available
 
 
 class TestCheckOsrmAvailable:
-    """T055: OSRM health check function."""
+    """OSRM health check function."""
 
     @pytest.mark.asyncio
     async def test_returns_true_when_osrm_responds(self):
@@ -94,7 +94,7 @@ class TestCheckOsrmAvailable:
 
 
 class TestHealthEndpointOsrm:
-    """T056: /health returns osrm_available field."""
+    """/health returns osrm_available field."""
 
     def test_health_endpoint_has_osrm_field(self):
         """Verify the health endpoint source includes osrm_available."""
@@ -107,7 +107,7 @@ class TestHealthEndpointOsrm:
 
 
 class TestRouteGuardOsrm:
-    """T057: Route suggest guards on OSRM availability."""
+    """Route suggest guards on OSRM availability."""
 
     def test_suggest_route_checks_osrm(self):
         """The suggest_route endpoint should check OSRM availability."""

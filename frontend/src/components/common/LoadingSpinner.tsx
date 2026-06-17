@@ -1,5 +1,5 @@
 /**
- * T077 — LoadingSpinner
+ * LoadingSpinner
  *
  * A simple CSS-only loading spinner component.
  */

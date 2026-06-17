@@ -1,7 +1,7 @@
 import type { ConsoleMessage, Page, Request, Response } from "@playwright/test";
 
 /**
- * Verification evidence + result helpers (feature 008).
+ * Verification evidence + result helpers.
  *
  * Captures what a verification run observed — visible page content, console
  * errors, and backend interaction outcomes — and assembles a clear pass/fail

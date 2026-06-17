@@ -1,5 +1,5 @@
 """
-Fast data-only reset for the verification database (feature 008).
+Fast data-only reset for the verification database.
 
 Restores the demo baseline between warm verification runs WITHOUT re-restoring the
 frozen street snapshot:
@@ -47,7 +47,7 @@ RUN_ACCUMULATED_TABLES = [
 
 def reset_runtime_caches() -> None:
     """
-    Clear in-process state that would leak between warm runs (FR-018).
+    Clear in-process state that would leak between warm runs.
 
     NOTE: This affects the *current* Python process. When run as a standalone
     CLI it clears this process's globals; the live backend process clears its

@@ -2,13 +2,13 @@
 Tests for error logging and silent-catch elimination.
 
 Covers:
-- T007: DEV_AUTH_BYPASS critical log warning
-- T014: importer coverage matching logs on failure
-- T016: coverage.py GeoJSON geometry logging
-- T017: importer polyline decode logging
-- T019: cities.py boundary serialization logging
-- T020: webhook handler logs and re-raises on failure
-- T021: webhook API catches TokenRevokedError, returns 500 on other errors
+- DEV_AUTH_BYPASS critical log warning
+- importer coverage matching logs on failure
+- coverage.py GeoJSON geometry logging
+- importer polyline decode logging
+- cities.py boundary serialization logging
+- webhook handler logs and re-raises on failure
+- webhook API catches TokenRevokedError, returns 500 on other errors
 - T026b: Automated grep audit for remaining silent catches
 """
 
@@ -63,7 +63,7 @@ class TestSilentCatchAudit:
 
 
 class TestDevAuthBypassWarning:
-    """T007: DEV_AUTH_BYPASS emits critical log."""
+    """DEV_AUTH_BYPASS emits critical log."""
 
     def test_critical_log_in_deps(self):
         """The get_current_user function should contain a logger.critical call."""
@@ -75,10 +75,10 @@ class TestDevAuthBypassWarning:
 
 
 class TestImporterErrorLogging:
-    """T014+T017: Importer logs errors instead of silently passing."""
+    """Importer logs errors instead of silently passing."""
 
     def test_coverage_matching_failure_logged(self):
-        """T014: The coverage matching except block should call logger.exception."""
+        """The coverage matching except block should call logger.exception."""
         import inspect
         from app.services.importer import _process_phase_b_activity
 
@@ -87,7 +87,7 @@ class TestImporterErrorLogging:
         assert "Coverage matching failed" in source
 
     def test_polyline_decode_failure_logged(self):
-        """T017: The polyline decode except block should call logger.warning."""
+        """The polyline decode except block should call logger.warning."""
         import inspect
         from app.services.importer import ActivityImporter
 
@@ -96,7 +96,7 @@ class TestImporterErrorLogging:
 
 
 class TestCoverageGeoJSONLogging:
-    """T016: coverage.py logs geometry serialization failures."""
+    """coverage.py logs geometry serialization failures."""
 
     def test_geometry_failure_logged(self):
         import inspect
@@ -107,7 +107,7 @@ class TestCoverageGeoJSONLogging:
 
 
 class TestCitiesBoundaryLogging:
-    """T019: cities.py logs boundary serialization failures."""
+    """cities.py logs boundary serialization failures."""
 
     def test_boundary_failure_logged(self):
         import inspect
@@ -118,10 +118,10 @@ class TestCitiesBoundaryLogging:
 
 
 class TestWebhookErrorHandling:
-    """T020+T021: Webhook logs errors and re-raises; API catches TokenRevokedError."""
+    """Webhook logs errors and re-raises; API catches TokenRevokedError."""
 
     def test_webhook_handler_logs_and_reraises(self):
-        """T020: handle_webhook_event should log exceptions and re-raise."""
+        """handle_webhook_event should log exceptions and re-raise."""
         import inspect
         from app.services.webhook import handle_webhook_event
 
@@ -130,7 +130,7 @@ class TestWebhookErrorHandling:
         assert "raise" in source, "Webhook handler should re-raise after logging"
 
     def test_webhook_api_catches_token_revoked(self):
-        """T021: Webhook API route should catch TokenRevokedError separately."""
+        """Webhook API route should catch TokenRevokedError separately."""
         import inspect
         from app.api.webhook import strava_webhook_event
 

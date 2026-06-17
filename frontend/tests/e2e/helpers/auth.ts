@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 /**
- * Authenticated-session seeding for the verification harness (feature 008).
+ * Authenticated-session seeding for the verification harness.
  *
  * The frontend persists auth in localStorage and treats the presence of an
  * `access_token` as "logged in" (see frontend/src/store/index.ts). Seeding these

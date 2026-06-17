@@ -1,4 +1,4 @@
-# Shared helpers for the local browser verification harness launchers (feature 008).
+# Shared helpers for the local browser verification harness launchers.
 # Dot-sourced by verify-up.ps1, verify-reset.ps1, verify-clean.ps1.
 
 Set-StrictMode -Version Latest

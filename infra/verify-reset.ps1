@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Fast data-only reset of the verification baseline between warm runs (feature 008).
+    Fast data-only reset of the verification baseline between warm runs.
 
 .DESCRIPTION
     Restores the demo dataset to its known baseline WITHOUT re-restoring the frozen

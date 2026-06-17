@@ -1,5 +1,5 @@
 """
-Integration tests for per-user data isolation (SC-002).
+Integration tests for per-user data isolation.
 
 Verifies:
 - GET /activities returns only the authenticated user's activities
@@ -109,7 +109,7 @@ def test_env():
 
 
 class TestUserIsolation:
-    """SC-002: 100% of data endpoints enforce user authentication and return only the authenticated user's data."""
+    """100% of data endpoints enforce user authentication and return only the authenticated user's data."""
 
     def test_activities_returns_only_own_data_user_a(self, test_env):
         client = TestClient(test_env["app"])

@@ -1,5 +1,5 @@
 /**
- * T070 — MilestoneList
+ * MilestoneList
  *
  * Achievement badges showing coverage milestones (25%, 50%, 75%, 100%)
  * with dates for each neighborhood.

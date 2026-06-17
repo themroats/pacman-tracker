@@ -2,18 +2,18 @@
 Tests for sync lifecycle — state machine enforcement in API endpoints.
 
 Covers:
-- T009: Auth callback stores access_token_hash
-- T032: trigger_sync uses transition_sync_status
-- T033: background sync transitions to complete/error/revoked
-- T034: sync_status auto-transitions complete → idle
-- T036: Startup lifespan resets stale syncing/importing to error
+- Auth callback stores access_token_hash
+- trigger_sync uses transition_sync_status
+- background sync transitions to complete/error/revoked
+- sync_status auto-transitions complete → idle
+- Startup lifespan resets stale syncing/importing to error
 """
 
 import pytest
 
 
 class TestAuthCallbackStoresHash:
-    """T009: strava_callback computes token hash and stores in UserToken."""
+    """strava_callback computes token hash and stores in UserToken."""
 
     def test_callback_source_contains_compute_token_hash(self):
         import inspect
@@ -27,7 +27,7 @@ class TestAuthCallbackStoresHash:
 
 
 class TestTriggerSyncTransition:
-    """T032: trigger_sync uses transition_sync_status and catches ValueError."""
+    """trigger_sync uses transition_sync_status and catches ValueError."""
 
     def test_trigger_sync_uses_state_machine(self):
         import inspect
@@ -41,7 +41,7 @@ class TestTriggerSyncTransition:
 
 
 class TestBackgroundSyncTransitions:
-    """T033: _run_background_sync transitions correctly."""
+    """_run_background_sync transitions correctly."""
 
     def test_background_sync_handles_all_outcomes(self):
         import inspect
@@ -55,7 +55,7 @@ class TestBackgroundSyncTransitions:
 
 
 class TestSyncStatusAutoTransition:
-    """T034: sync_status endpoint auto-transitions complete → idle."""
+    """sync_status endpoint auto-transitions complete → idle."""
 
     def test_sync_status_handles_complete(self):
         import inspect
@@ -68,7 +68,7 @@ class TestSyncStatusAutoTransition:
 
 
 class TestStartupRecovery:
-    """T036: Lifespan resets stale sync statuses on startup."""
+    """Lifespan resets stale sync statuses on startup."""
 
     def test_lifespan_contains_recovery_query(self):
         import inspect
