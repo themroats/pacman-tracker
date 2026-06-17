@@ -14,7 +14,7 @@ import { startEvidence, makeResult } from "./helpers/evidence";
 test.describe("reach protected pages without OAuth", () => {
   test.beforeEach(async ({ page }) => {
     // Seed the authenticated demo session BEFORE any navigation so the app does
-    // not redirect to the Strava login screen (acceptance 1).
+    // not redirect to the Strava login screen.
     await seedAuth(page);
   });
 
